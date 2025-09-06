@@ -12,7 +12,6 @@
             label="Durum"
             outlined
             dense
-            clearable
             emit-value
             map-options
             @update:model-value="applyFilters"
