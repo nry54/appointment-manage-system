@@ -1,95 +1,81 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <q-header elevated>
-      <q-toolbar>
-        <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" />
-
-        <q-toolbar-title> Quasar App </q-toolbar-title>
-
-        <div>Quasar v{{ $q.version }}</div>
-      </q-toolbar>
-    </q-header>
-
-    <q-drawer v-model="leftDrawerOpen" show-if-above bordered>
-      <q-list>
-        <q-item-label header> Essential Links </q-item-label>
-
-        <EssentialLink v-for="link in linksList" :key="link.title" v-bind="link" />
-      </q-list>
-    </q-drawer>
-
     <q-page-container>
-      <router-view />
+      <q-page class="q-pa-md">
+        <!-- Filtre bölümü için component -->
+        <FilterComponent />
+
+        <!-- Randevu listesi için component-->
+        <AppointmentList
+          :appointments="filteredAppointments"
+          :loading="loading"
+          @appointment-saved="handleAppointmentSaved"
+          @appointment-updated="handleAppointmentUpdated"
+          @appointment-deleted="handleAppointmentDeleted"
+        />
+      </q-page>
     </q-page-container>
   </q-layout>
 </template>
 
 <script>
-import { defineComponent, ref } from 'vue'
-import EssentialLink from 'components/EssentialLink.vue'
-
-const linksList = [
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Discord Chat Channel',
-    caption: 'chat.quasar.dev',
-    icon: 'chat',
-    link: 'https://chat.quasar.dev',
-  },
-  {
-    title: 'Forum',
-    caption: 'forum.quasar.dev',
-    icon: 'record_voice_over',
-    link: 'https://forum.quasar.dev',
-  },
-  {
-    title: 'Twitter',
-    caption: '@quasarframework',
-    icon: 'rss_feed',
-    link: 'https://twitter.quasar.dev',
-  },
-  {
-    title: 'Facebook',
-    caption: '@QuasarFramework',
-    icon: 'public',
-    link: 'https://facebook.quasar.dev',
-  },
-  {
-    title: 'Quasar Awesome',
-    caption: 'Community Quasar projects',
-    icon: 'favorite',
-    link: 'https://awesome.quasar.dev',
-  },
-]
+import { defineComponent } from 'vue'
+import FilterComponent from 'components/FilterComponent.vue'
+import AppointmentList from 'components/AppointmentList.vue'
 
 export default defineComponent({
   name: 'MainLayout',
 
   components: {
-    EssentialLink,
+    FilterComponent,
+    AppointmentList,
   },
 
   data() {
     return {
-      linksList,
-      leftDrawerOpen: false,
+      loading: false,
+      appointments: [],
     }
   },
 
+  computed: {
+    filteredAppointments() {
+      return this.appointments
+    },
+  },
+
+  mounted() {
+    this.init()
+  },
+
   methods: {
-    toggleLeftDrawer() {
-      this.leftDrawerOpen = !this.leftDrawerOpen
+    async init() {
+      console.log('Uygulama başlatılıyor...')
+    },
+
+    handleAppointmentSaved(appointment) {
+      const newAppointment = {
+        ...appointment,
+        id: this.appointments.length + 1,
+      }
+      this.appointments.push(newAppointment)
+      console.log('Yeni randevu eklendi:', newAppointment)
+    },
+
+    handleAppointmentUpdated(updatedAppointment) {
+      const index = this.appointments.findIndex((apt) => apt.id === updatedAppointment.id)
+      if (index !== -1) {
+        this.appointments.splice(index, 1, updatedAppointment)
+        console.log('Randevu güncellendi:', updatedAppointment)
+      }
+    },
+
+    handleAppointmentDeleted(appointmentId) {
+      const index = this.appointments.findIndex((apt) => apt.id === appointmentId)
+      if (index !== -1) {
+        this.appointments.splice(index, 1)
+        console.log('Randevu silindi:', appointmentId)
+      }
     },
   },
 })
