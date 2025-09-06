@@ -234,13 +234,11 @@ export default {
   },
 
   mounted() {
-    console.log(STATUS)
     // console.log(this.filters.status)
-    //TODO: varsayılan olarak ALL STATUS seçili olarak gelmeli
     //TODO: Varsayılan dateFrom ataması: bugünün tarihi saat 09:00
 
-    // Varsayılan olarak status'u ALL olarak ayarla
-    this.filters.status = STATUS.ALL
+    // Varsayılan olarak status'u ALL olarak ayarlandı
+    this.filters.status = (STATUS.find((s) => s.value === 'ALL') || {}).value
 
     // Varsayılan olarak dateFrom'u bugünün tarihi saat 09:00 olarak ayarla (mask: DD-MM-YYYY HH:mm)
     const now = new Date()
