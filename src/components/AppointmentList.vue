@@ -61,7 +61,7 @@
         <!-- Status Section -->
         <div class="status-section">
           <div class="status-pill-container">
-            <div class="status-pill">
+            <div class="status-pill" :class="getStatusPillClass(appointment)">
               <div class="status-indicator">
                 <div class="status-text">
                   {{ getStatusText(appointment) }}
@@ -250,9 +250,19 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
+    filters: {
+      type: Object,
+      default: () => ({}),
+    },
   },
 
-  emits: ['appointment-listed', 'appointment-saved', 'appointment-deleted', 'appointment-updated'],
+  emits: [
+    'appointment-listed',
+    'appointment-saved',
+    'appointment-deleted',
+    'appointment-updated',
+    'updated-filter',
+  ],
   data: function () {
     return {
       apiUrl: process.env.VUE_APP_API_BASE_URL || '',
@@ -265,6 +275,8 @@ export default defineComponent({
       rowsPerPage: DEFAULT_PAGINATION.rowsPerPage,
       sortBy: DEFAULT_PAGINATION.sortBy,
       descending: DEFAULT_PAGINATION.descending,
+
+      showAddDialog: false,
     }
   },
   computed: {
@@ -277,6 +289,16 @@ export default defineComponent({
       return this.paginatedAppointments.slice(start, end)
     },
   },
+
+  watch: {
+    filters: {
+      handler() {
+        this.init()
+      },
+      deep: true,
+    },
+  },
+
   mounted() {
     this.init()
   },
@@ -305,7 +327,11 @@ export default defineComponent({
         const response = await axios.get(endpoint, config)
         // Elde edilen randevuları component'in appointments prop'una emit ile gönderiyoruz
         const { records } = response.data
-        this.paginatedAppointments = records
+        // filters.status varsa, status'a göre filtrele
+        let filteredRecords = records
+        console.log(this.filters)
+        filteredRecords = this.filterRecords(records, this.filters)
+        this.paginatedAppointments = filteredRecords
       } catch (error) {
         // Hata durumunda konsola yazdır
         console.error('Randevular alınırken hata oluştu:', error)
@@ -321,7 +347,7 @@ export default defineComponent({
       }
 
       // Eğer tamamlanmışsa
-      if (appointment.fields.is_completed === 'COMPLETED') {
+      if (appointment.fields.is_completed) {
         return STATUS.find((s) => s.value === 'COMPLETED')?.label || 'Completed'
       }
 
@@ -347,16 +373,20 @@ export default defineComponent({
       }
 
       // Eğer tamamlanmışsa
-      if (appointment.fields.status === 'COMPLETED') {
+      if (appointment.fields.is_completed) {
         return 'status-pill-completed'
       }
 
       // UPCOMING durumunda tarihe göre dinamik sınıf
-      if (appointment.fields.status === 'UPCOMING' && appointment.fields.appointment_date) {
+      if (appointment.fields.appointment_date) {
         const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date)
 
         if (timeRemaining === 'Past') return 'status-pill-overdue'
         if (timeRemaining === 'Today') return 'status-pill-today'
+        if (timeRemaining === '1 day') return 'status-pill-tomorrow'
+        if (timeRemaining.includes('days')) return 'status-pill-upcoming'
+        if (timeRemaining.includes('weeks')) return 'status-pill-upcoming'
+        if (timeRemaining.includes('months')) return 'status-pill-upcoming'
       }
 
       // Varsayılan olarak UPCOMING
@@ -404,6 +434,43 @@ export default defineComponent({
         hour: '2-digit',
         minute: '2-digit',
         hour12: false,
+      })
+    },
+    filterRecords(records, filters) {
+      // filters objesindeki filtrelere göre records listesini filtrele
+      if (!filters || Object.keys(filters).length === 0) {
+        return records
+      }
+
+      return records.filter((record) => {
+        // Her bir filtre için kontrol et
+        for (const key in filters) {
+          const filterValue = filters[key]
+          // Eğer filtre değeri boşsa veya null ise atla
+          if (filterValue === null || filterValue === '' || filterValue === undefined) continue
+
+          // Eğer filtrelenen alan "status" ise, özel bir kontrol uygula
+          if (key === 'status') {
+            // status değeri "upcoming", "completed", "cancelled" gibi olabilir
+            if (filterValue === 'UPCOMING') {
+              // Ne tamamlanmış ne de iptal edilmiş
+              if (record.fields.is_completed || record.fields.is_cancelled) {
+                return false
+              }
+            } else if (filterValue === 'COMPLETED') {
+              if (!record.fields.is_completed) {
+                return false
+              }
+            } else if (filterValue === 'CANCELLED') {
+              if (!record.fields.is_cancelled) {
+                return false
+              }
+            }
+            // Diğer status değerleri için ek kontroller eklenebilir
+            continue
+          }
+        }
+        return true
       })
     },
   },
@@ -575,6 +642,11 @@ export default defineComponent({
 .status-pill-overdue {
   background: linear-gradient(135deg, #f44336, #ef5350);
   box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+}
+
+.status-pill-tomorrow {
+  background: linear-gradient(135deg, #ffc107, #ffd54f);
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
 }
 
 .status-pill-completed {

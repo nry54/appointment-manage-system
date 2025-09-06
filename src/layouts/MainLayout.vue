@@ -3,12 +3,13 @@
     <q-page-container>
       <q-page class="q-pa-md">
         <!-- Filtre bölümü için component -->
-        <FilterComponent />
+        <FilterComponent @filter-changed="filterChanged" />
 
         <!-- Randevu listesi için component-->
         <AppointmentList
           :appointments="filteredAppointments"
           :loading="loading"
+          :filters="currentFilters"
           @appointment-saved="handleAppointmentSaved"
           @appointment-updated="handleAppointmentUpdated"
           @appointment-deleted="handleAppointmentDeleted"
@@ -35,6 +36,7 @@ export default defineComponent({
     return {
       loading: false,
       appointments: [],
+      currentFilters: {},
     }
   },
 
@@ -76,6 +78,10 @@ export default defineComponent({
         this.appointments.splice(index, 1)
         console.log('Randevu silindi:', appointmentId)
       }
+    },
+    filterChanged(processedFilters) {
+      // Filtre değerlerini state'e kaydet
+      this.currentFilters = processedFilters
     },
   },
 })
