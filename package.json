@@ -2,7 +2,7 @@
   "name": "appointment-manage-system",
   "version": "0.0.1",
   "description": " Appointment management system. Vue 3 and Quasar were used.",
-  "productName": "appointment-manage-system",
+  "productName": "Appointment Management",
   "author": "Nuray Şentürk <83533779+nry54@users.noreply.github.com>",
   "type": "module",
   "private": true,
