@@ -58,7 +58,30 @@
           </div>
         </div>
 
-        <!--TODO: Randevu tarihi ve durumu -->
+        <!-- Status Section -->
+        <div class="status-section">
+          <div class="status-pill-container">
+            <div class="status-pill">
+              <div class="status-indicator">
+                <div class="status-text">
+                  {{ getStatusText(appointment) }}
+                </div>
+                <div
+                  v-if="!(appointment.fields.is_cancelled || appointment.fields.is_completed)"
+                  class="time-remaining"
+                >
+                  {{ getTimeRemaining(appointment.fields.appointment_date) }}
+                </div>
+              </div>
+              <div class="date-section">
+                <q-icon name="schedule" class="clock-icon" />
+                <span class="appointment-date-text">{{
+                  formatDate(appointment.fields.appointment_date)
+                }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Staff Section -->
         <div class="staff-section">
@@ -208,63 +231,12 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
-
-    <!-- Randevu Detay Dialog -->
-    <q-dialog v-model="showViewDialog">
-      <q-card style="min-width: 400px">
-        <q-card-section>
-          <div class="text-h6">
-            <q-icon name="event" class="q-mr-sm" />
-            Randevu Detayları
-          </div>
-        </q-card-section>
-
-        <q-card-section v-if="selectedAppointment">
-          <div class="q-gutter-md">
-            <div class="row">
-              <div class="col-4 text-weight-medium">Hasta:</div>
-              <div class="col-8">{{ selectedAppointment.patientName }}</div>
-            </div>
-            <div class="row">
-              <div class="col-4 text-weight-medium">Doktor:</div>
-              <div class="col-8">{{ selectedAppointment.doctorName }}</div>
-            </div>
-            <div class="row">
-              <div class="col-4 text-weight-medium">Tarih:</div>
-              <div class="col-8">{{ formatDate(selectedAppointment.date) }}</div>
-            </div>
-            <div class="row">
-              <div class="col-4 text-weight-medium">Saat:</div>
-              <div class="col-8">{{ formatTime(selectedAppointment.time) }}</div>
-            </div>
-            <div class="row">
-              <div class="col-4 text-weight-medium">Durum:</div>
-              <div class="col-8">
-                <q-badge
-                  :color="getStatusColor(selectedAppointment.status)"
-                  :label="getStatusText(selectedAppointment.status)"
-                />
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-4 text-weight-medium">Notlar:</div>
-              <div class="col-8">{{ selectedAppointment.notes || 'Not yok' }}</div>
-            </div>
-          </div>
-        </q-card-section>
-
-        <q-card-actions align="right">
-          <q-btn flat label="Kapat" @click="showViewDialog = false" />
-          <q-btn color="primary" label="Düzenle" @click="editFromView" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
   </div>
 </template>
 
 <script>
 import { defineComponent } from 'vue'
-import { DEFAULT_PAGINATION } from '../constants'
+import { DEFAULT_PAGINATION, STATUS } from '../constants'
 
 export default defineComponent({
   name: 'AppointmentList',
@@ -342,8 +314,98 @@ export default defineComponent({
     onPageChange(page) {
       this.currentPage = page
     },
-    getStatusColor() {},
-    getStatusText() {},
+    getStatusText(appointment) {
+      // Eğer iptal edilmişse
+      if (appointment.fields.is_cancelled) {
+        return STATUS.find((s) => s.value === 'CANCELLED')?.label || 'Cancelled'
+      }
+
+      // Eğer tamamlanmışsa
+      if (appointment.fields.is_completed === 'COMPLETED') {
+        return STATUS.find((s) => s.value === 'COMPLETED')?.label || 'Completed'
+      }
+
+      // UPCOMING durumunda tarihe göre dinamik metin
+      if (appointment.fields.appointment_date) {
+        const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date)
+
+        if (timeRemaining === 'Past') return 'Overdue'
+        if (timeRemaining === 'Today') return 'Today'
+        if (timeRemaining === '1 day') return 'Tomorrow'
+        if (timeRemaining.includes('days')) return 'Upcoming'
+        if (timeRemaining.includes('weeks')) return 'Upcoming'
+        if (timeRemaining.includes('months')) return 'Upcoming'
+      }
+
+      // Varsayılan olarak UPCOMING
+      return STATUS.find((s) => s.value === 'UPCOMING')?.label || 'Upcoming'
+    },
+    getStatusPillClass(appointment) {
+      // Eğer iptal edilmişse
+      if (appointment.fields.is_cancelled) {
+        return 'status-pill-canceled'
+      }
+
+      // Eğer tamamlanmışsa
+      if (appointment.fields.status === 'COMPLETED') {
+        return 'status-pill-completed'
+      }
+
+      // UPCOMING durumunda tarihe göre dinamik sınıf
+      if (appointment.fields.status === 'UPCOMING' && appointment.fields.appointment_date) {
+        const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date)
+
+        if (timeRemaining === 'Past') return 'status-pill-overdue'
+        if (timeRemaining === 'Today') return 'status-pill-today'
+      }
+
+      // Varsayılan olarak UPCOMING
+      return 'status-pill-upcoming'
+    },
+    getTimeRemaining(appointmentDate) {
+      if (!appointmentDate) return ''
+      // Tarih fonksiyonlarının kalan (difference) fonksiyonunu kullanalım
+      const now = new Date()
+      const appointment = new Date(appointmentDate)
+
+      // Sadece tarih kısmını karşılaştırmak için saatleri sıfırla
+      now.setHours(0, 0, 0, 0)
+      appointment.setHours(0, 0, 0, 0)
+
+      // Kalan gün sayısını hesapla
+      const diffTime = appointment.getTime() - now.getTime()
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
+      if (diffDays < 0) return 'Past'
+      if (diffDays === 0) return 'Today'
+      if (diffDays === 1) return '1 day'
+      if (diffDays < 7) return `${diffDays} days`
+      if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks`
+      return `${Math.floor(diffDays / 30)} months`
+    },
+    formatDate(dateString) {
+      if (!dateString) return '-'
+      const date = new Date(dateString)
+      return date.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+    },
+    formatTime(timeString) {
+      if (!timeString) return '-'
+      // Eğer timeString sadece saat:dakika formatındaysa
+      if (timeString.includes(':')) {
+        return timeString
+      }
+      // Eğer tam datetime ise, sadece saat kısmını al
+      const date = new Date(timeString)
+      return date.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      })
+    },
   },
 })
 </script>
@@ -483,24 +545,96 @@ export default defineComponent({
 /* Status Section */
 .status-section {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  justify-content: center;
   align-items: center;
 }
 
-.status-btn {
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 12px;
-  padding: 6px 12px;
-  min-width: 80px;
+.status-pill-container {
+  width: 100%;
+  max-width: 280px;
 }
 
-.time-remaining-btn {
-  border-radius: 16px;
+.status-pill {
+  border-radius: 25px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  min-height: 50px;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #e91e63, #f06292);
+  box-shadow: 0 4px 12px rgba(233, 30, 99, 0.3);
+}
+
+.status-pill-today {
+  background: linear-gradient(135deg, #ff9800, #ffb74d);
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+}
+
+.status-pill-overdue {
+  background: linear-gradient(135deg, #f44336, #ef5350);
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+}
+
+.status-pill-completed {
+  background: linear-gradient(135deg, #4caf50, #81c784);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.status-pill-canceled {
+  background: linear-gradient(135deg, #9e9e9e, #bdbdbd);
+  box-shadow: 0 4px 12px rgba(158, 158, 158, 0.3);
+  opacity: 0.7;
+  filter: grayscale(0.3);
+}
+
+.status-indicator {
+  background: white;
+  border-radius: 20px;
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 100px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.status-text {
+  font-weight: 700;
+  font-size: 12px;
+  color: #ff9800;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.time-remaining {
+  font-weight: 600;
   font-size: 11px;
-  padding: 4px 8px;
-  min-width: 60px;
+  color: #333;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.date-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  font-weight: 600;
+}
+
+.clock-icon {
+  font-size: 16px;
+  color: white;
+}
+
+.appointment-date-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
 }
 
 /* Date/Time Section */
@@ -611,13 +745,33 @@ export default defineComponent({
   }
 
   .status-section {
-    flex-direction: row;
     justify-content: flex-start;
+  }
+
+  .status-pill-container {
+    max-width: 100%;
   }
 
   .staff-section {
     justify-content: flex-start;
     margin-top: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .status-pill {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .status-indicator {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .date-section {
+    justify-content: center;
   }
 }
 
