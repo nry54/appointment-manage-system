@@ -1,241 +1,138 @@
 <template>
-  <div class="appointment-list-container">
-    <!-- Header Section -->
-    <div class="header-section">
-      <div class="appointment-count">
-        <span class="count-text">{{ appointments.length }} Randevu Bulundu</span>
-      </div>
-      <div class="create-button">
-        <q-btn
-          push
-          no-caps
-          color="pink"
-          icon="add"
-          label="Create Appointment"
-          @click="showAddDialog = true"
-        />
-      </div>
-    </div>
-
-    <!-- Loading State -->
-    <div v-if="loading" class="loading-container">
-      <q-spinner size="40px" color="primary" />
-      <div class="loading-text">Randevular yükleniyor...</div>
-    </div>
-
-    <!-- Appointment Cards -->
-    <div v-else class="appointment-cards">
-      <div
-        v-for="appointment in paginatedAppointments"
-        :key="appointment.id"
-        class="appointment-card"
-      >
-        <!-- Client Information Section -->
-        <div class="client-section">
-          <div class="client-icons">
-            <q-icon name="person" class="client-icon" />
-            <q-icon name="email" class="client-icon" />
-            <q-icon name="phone" class="client-icon" />
-          </div>
-          <div class="client-details">
-            <div class="client-name">{{ appointment.fields.contact_name[0] }}</div>
-            <div class="client-email">
-              {{ appointment.fields.contact_email[0] || '-' }}
+  <q-layout view="lHh Lpr lFf">
+    <q-page-container>
+      <q-page class="q-pa-md">
+        <div class="appointment-list-container">
+          <!-- Header Section -->
+          <div class="header-section">
+            <div class="appointment-count">
+              <span class="count-text">{{ appointments.length }} Randevu Bulundu</span>
             </div>
-            <div class="client-phone">
-              {{ appointment.fields.contact_phone[0] || '-' }}
+            <div class="create-button">
+              <q-btn
+                push
+                no-caps
+                color="pink"
+                icon="add"
+                label="Create Appointment"
+                @click="openAppointmentDialog()"
+              />
             </div>
           </div>
-        </div>
 
-        <!-- Address Section -->
-        <div class="address-section">
-          <q-icon name="home" class="address-icon" />
-          <div class="address-details">
-            <div class="address-street">
-              {{ appointment.fields.appointment_address || '-' }}
-            </div>
+          <!-- Loading State -->
+          <div v-if="loading" class="loading-container">
+            <q-spinner size="40px" color="primary" />
+            <div class="loading-text">Randevular yükleniyor...</div>
           </div>
-        </div>
 
-        <!-- Status Section -->
-        <div class="status-section">
-          <div class="status-pill-container">
-            <div class="status-pill" :class="getStatusPillClass(appointment)">
-              <div class="status-indicator">
-                <div class="status-text">
-                  {{ getStatusText(appointment) }}
-                </div>
-                <div
-                  v-if="!(appointment.fields.is_cancelled || appointment.fields.is_completed)"
-                  class="time-remaining"
-                >
-                  {{ getTimeRemaining(appointment.fields.appointment_date) }}
-                </div>
-              </div>
-              <div class="date-section">
-                <q-icon name="schedule" class="clock-icon" />
-                <span class="appointment-date-text">{{
-                  formatDate(appointment.fields.appointment_date)
-                }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Staff Section -->
-        <div class="staff-section">
-          <!--
-          <div class="staff-avatars">
+          <!-- Appointment Cards -->
+          <div v-else class="appointment-cards">
             <div
-              v-for="(staff, index) in getStaffMembers(appointment)"
-              :key="index"
-              class="staff-avatar"
-              :style="{ backgroundColor: getStaffColor(index) }"
+              v-for="appointment in paginatedAppointments"
+              :key="appointment.id"
+              class="appointment-card"
             >
-              {{ staff.initials }}
-            </div>
-            <div v-if="getAdditionalStaffCount(appointment) > 0" class="additional-staff">
-              +{{ getAdditionalStaffCount(appointment) }}
+              <!-- Contact Information Section -->
+              <div class="contact-section">
+                <div class="contact-icons">
+                  <q-icon name="person" class="contact-icon" />
+                  <q-icon name="email" class="contact-icon" />
+                  <q-icon name="phone" class="contact-icon" />
+                </div>
+                <div class="contact-details">
+                  <div class="contact-name">{{ appointment.fields.contact_name[0] }}</div>
+                  <div class="contact-email">
+                    {{ appointment.fields.contact_email[0] || '-' }}
+                  </div>
+                  <div class="contact-phone">
+                    {{ appointment.fields.contact_phone[0] || '-' }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Address Section -->
+              <div class="address-section">
+                <q-icon name="home" class="address-icon" />
+                <div class="address-details">
+                  <div class="address-street">
+                    {{ appointment.fields.appointment_address || '-' }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Status Section -->
+              <div class="status-section">
+                <div class="status-pill-container">
+                  <div class="status-pill" :class="getStatusPillClass(appointment)">
+                    <div class="status-indicator">
+                      <div class="status-text">
+                        {{ getStatusText(appointment) }}
+                      </div>
+                      <div
+                        v-if="!(appointment.fields.is_cancelled || appointment.fields.is_completed)"
+                        class="time-remaining"
+                      >
+                        {{ getTimeRemaining(appointment.fields.appointment_date) }}
+                      </div>
+                    </div>
+                    <div class="date-section">
+                      <q-icon name="schedule" class="clock-icon" />
+                      <span class="appointment-date-text">{{
+                        formatDate(appointment.fields.appointment_date)
+                      }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Staff Section -->
+              <div class="staff-section">
+                <!--
+                <div class="staff-avatars">
+                  <div
+                    v-for="(staff, index) in getStaffMembers(appointment)"
+                    :key="index"
+                    class="staff-avatar"
+                    :style="{ backgroundColor: getStaffColor(index) }"
+                  >
+                    {{ staff.initials }}
+                  </div>
+                  <div v-if="getAdditionalStaffCount(appointment) > 0" class="additional-staff">
+                    +{{ getAdditionalStaffCount(appointment) }}
+                  </div>
+                </div>
+                -->
+              </div>
             </div>
           </div>
-          -->
+
+          <!-- Pagination -->
+          <div v-if="totalPages > 1" class="pagination-section">
+            <q-pagination
+              v-model="currentPage"
+              :max="totalPages"
+              :max-pages="5"
+              direction-links
+              boundary-links
+              color="primary"
+              @update:model-value="onPageChange"
+            />
+          </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Pagination -->
-    <div v-if="totalPages > 1" class="pagination-section">
-      <q-pagination
-        v-model="currentPage"
-        :max="totalPages"
-        :max-pages="5"
-        direction-links
-        boundary-links
-        color="primary"
-        @update:model-value="onPageChange"
-      />
-    </div>
-
-    <!-- Randevu Ekleme/Düzenleme Dialog -->
-    <q-dialog v-model="showAddDialog" persistent>
-      <q-card style="min-width: 500px; max-width: 600px">
-        <q-card-section>
-          <div class="text-h6">
-            <q-icon name="event" class="q-mr-sm" />
-            {{ editingAppointment ? 'Randevu Düzenle' : 'Yeni Randevu' }}
-          </div>
-        </q-card-section>
-
-        <q-card-section>
-          <q-form @submit="saveAppointment" class="q-gutter-md">
-            <div class="row q-gutter-md">
-              <div class="col-12 col-md-6">
-                <q-input
-                  v-model="appointmentForm.patientName"
-                  label="Hasta Adı"
-                  :rules="[(val) => !!val || 'Hasta adı gerekli']"
-                  outlined
-                  dense
-                >
-                  <template v-slot:prepend>
-                    <q-icon name="person" />
-                  </template>
-                </q-input>
-              </div>
-
-              <div class="col-12 col-md-6">
-                <q-input
-                  v-model="appointmentForm.doctorName"
-                  label="Doktor Adı"
-                  :rules="[(val) => !!val || 'Doktor adı gerekli']"
-                  outlined
-                  dense
-                >
-                  <template v-slot:prepend>
-                    <q-icon name="medical_services" />
-                  </template>
-                </q-input>
-              </div>
-            </div>
-
-            <div class="row q-gutter-md">
-              <div class="col-12 col-md-6">
-                <q-input
-                  v-model="appointmentForm.date"
-                  label="Tarih"
-                  type="date"
-                  :rules="[(val) => !!val || 'Tarih gerekli']"
-                  outlined
-                  dense
-                >
-                  <template v-slot:prepend>
-                    <q-icon name="event" />
-                  </template>
-                </q-input>
-              </div>
-
-              <div class="col-12 col-md-6">
-                <q-input
-                  v-model="appointmentForm.time"
-                  label="Saat"
-                  type="time"
-                  :rules="[(val) => !!val || 'Saat gerekli']"
-                  outlined
-                  dense
-                >
-                  <template v-slot:prepend>
-                    <q-icon name="schedule" />
-                  </template>
-                </q-input>
-              </div>
-            </div>
-
-            <q-input
-              v-model="appointmentForm.notes"
-              label="Notlar"
-              type="textarea"
-              rows="3"
-              outlined
-              dense
-            >
-              <template v-slot:prepend>
-                <q-icon name="notes" />
-              </template>
-            </q-input>
-
-            <q-select
-              v-model="appointmentForm.status"
-              :options="statusOptions"
-              label="Durum"
-              emit-value
-              map-options
-              outlined
-              dense
-            >
-              <template v-slot:prepend>
-                <q-icon name="flag" />
-              </template>
-            </q-select>
-          </q-form>
-        </q-card-section>
-
-        <q-card-actions align="right" class="q-pa-md">
-          <q-btn flat label="İptal" @click="cancelEdit" />
-          <q-btn
-            color="primary"
-            :label="editingAppointment ? 'Güncelle' : 'Kaydet'"
-            @click="saveAppointment"
-            :loading="saving"
-          />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-  </div>
+        <!-- Randevu Ekleme/Düzenleme Dialog -->
+        <AppoinmentDialog
+          v-if="appoinment.show"
+          :operation="appoinment.operation"
+        ></AppoinmentDialog>
+      </q-page>
+    </q-page-container>
+  </q-layout>
 </template>
 
 <script>
 import { defineComponent } from 'vue'
+import AppoinmentDialog from 'src/components/AppointmentDialog.vue'
 import { DEFAULT_PAGINATION, STATUS } from '../constants'
 
 export default defineComponent({
@@ -263,6 +160,7 @@ export default defineComponent({
     'appointment-updated',
     'updated-filter',
   ],
+  components: { AppoinmentDialog },
   data: function () {
     return {
       apiUrl: process.env.VUE_APP_API_BASE_URL || '',
@@ -276,7 +174,10 @@ export default defineComponent({
       sortBy: DEFAULT_PAGINATION.sortBy,
       descending: DEFAULT_PAGINATION.descending,
 
-      showAddDialog: false,
+      appoinment: {
+        show: false,
+        oparation: 'ADD',
+      },
     }
   },
   computed: {
@@ -329,7 +230,7 @@ export default defineComponent({
         const { records } = response.data
         // filters.status varsa, status'a göre filtrele
         let filteredRecords = records
-        console.log(this.filters)
+
         filteredRecords = this.filterRecords(records, this.filters)
         this.paginatedAppointments = filteredRecords
       } catch (error) {
@@ -473,6 +374,10 @@ export default defineComponent({
         return true
       })
     },
+    openAppointmentDialog() {
+      this.appoinment.show = true
+      this.appoinment.operation = 'ADD'
+    },
   },
 })
 </script>
@@ -539,40 +444,40 @@ export default defineComponent({
   transform: translateY(-2px);
 }
 
-/* Client Section */
-.client-section {
+/* contact Section */
+.contact-section {
   display: flex;
   align-items: flex-start;
   gap: 12px;
 }
 
-.client-icons {
+.contact-icons {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-top: 4px;
 }
 
-.client-icon {
+.contact-icon {
   font-size: 16px;
   color: #6c757d;
 }
 
-.client-details {
+.contact-details {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.client-name {
+.contact-name {
   font-weight: 600;
   font-size: 16px;
   color: #2c3e50;
   line-height: 1.4;
 }
 
-.client-email,
-.client-phone {
+.contact-email,
+.contact-phone {
   font-size: 14px;
   color: #6c757d;
   line-height: 1.3;
@@ -809,7 +714,7 @@ export default defineComponent({
     gap: 16px;
   }
 
-  .client-section,
+  .contact-section,
   .address-section,
   .datetime-section {
     flex-direction: row;
