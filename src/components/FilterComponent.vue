@@ -2,7 +2,30 @@
   <q-card class="q-mb-md">
     <q-card-section>
       <div class="row q-gutter-md items-center">
-        <!-- TODO: Kullanıcı(agent) filtresi olacak -->
+        <!-- Filter Agent -->
+        <div v-if="allAgents && allAgents.length > 0" class="col-12 col-sm-6">
+          <q-avatar
+            v-for="agent in allAgents.slice(0, 5)"
+            :key="agent.id"
+            :style="{ backgroundColor: agent.fields.color }"
+            :class="{ 'selected-agent': isSelected(agent.id) }"
+            @click="selectAgent(agent.id)"
+            size="40px"
+            class="q-mr-sm cursor-pointer text-white"
+          >
+            {{ agentAvatarLetters(agent) }}
+          </q-avatar>
+
+          <q-avatar
+            v-if="allAgents.length > 5"
+            color="white"
+            text-color="dark"
+            size="40px"
+            class="more-avatars-indicator"
+          >
+            +{{ allAgents.length - 5 }}
+          </q-avatar>
+        </div>
 
         <!-- Durum Filtresi -->
         <div class="col-12 col-sm-6 col-md-3">
@@ -157,15 +180,19 @@
 
 <script>
 import { STATUS } from '../constants/index'
+// import FilterAgentDialog from 'src/components/FilterAgentDialog.vue'
 
 export default {
   name: 'FilterComponent',
 
   emits: ['filter-changed'],
-
+  components: {
+    // FilterAgentDialog,
+  },
   data() {
     return {
       filters: {
+        selectedAgents: [],
         dateFrom: '',
         dateFromDate: '',
         dateFromTime: '',
@@ -175,6 +202,12 @@ export default {
         status: STATUS.ALL,
         search: '',
       },
+      allAgents: [],
+      apiUrl: process.env.VUE_APP_API_BASE_URL || '',
+      baseId: process.env.VUE_APP_API_BASE_ID || '',
+      agentTableId: process.env.VUE_APP_API_AGENT_TABLE_ID || '',
+      apiKey: process.env.VUE_APP_API_KEY || '',
+      agentSelectDialog: false,
     }
   },
 
@@ -233,7 +266,9 @@ export default {
   },
 
   mounted() {
-    // console.log(this.filters.status)
+    // Get all agents
+    this.getAllAgents()
+
     //TODO: Varsayılan dateFrom ataması: bugünün tarihi saat 09:00
 
     // Varsayılan olarak status'u ALL olarak ayarlandı
@@ -261,6 +296,58 @@ export default {
   },
 
   methods: {
+    // Fetching All Agents
+    async getAllAgents() {
+      try {
+        const axios = (await import('axios')).default
+
+        if (!this.apiUrl || !this.baseId || !this.agentTableId || !this.apiKey) {
+          console.error('Please control .env file')
+          return
+        }
+
+        const endpoint = `${this.apiUrl}/${this.baseId}/${this.agentTableId}`
+
+        // Added API key to header
+        const config = {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+        }
+        const response = await axios.get(endpoint, config) // Fetching agents
+
+        const { records } = response.data
+
+        this.allAgents = records
+      } catch (error) {
+        // Write console error
+        console.error('Error while getting agent list:', error)
+      }
+    },
+    // Letter operations for agent avatar
+    agentAvatarLetters(agent) {
+      // Take the first letters of agent first and last name
+      let initials = ''
+      const { agent_name, agent_surname } = agent.fields
+      if (agent_name) {
+        initials += agent_name.charAt(0)
+      }
+      if (agent_surname) {
+        initials += agent_surname.charAt(0)
+      }
+      return initials.toUpperCase()
+    },
+    selectAgent(agentId) {
+      const index = this.filters.selectedAgents.indexOf(agentId)
+      if (index > -1) {
+        this.filters.selectedAgents.splice(index, 1)
+      } else {
+        this.filters.selectedAgents.push(agentId)
+      }
+    },
+    isSelected(agentId) {
+      return this.filters.selectedAgents.includes(agentId)
+    },
     /**
      * Tarih ve saati birleştirerek DD-MM-YYYY HH:mm formatında string döndürür
      * @param {string} dateString - Tarih string'i (YYYY-MM-DD formatında)
@@ -430,3 +517,14 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.selected-agent {
+  border: 2px solid blue; /* Seçili ajanlar için görsel stil */
+}
+.more-avatars-indicator {
+  font-weight: bold;
+  background-color: #e0e0e0 !important; /* Arka plan rengini ayarlayın */
+  color: #333 !important; /* Metin rengini ayarlayın */
+}
+</style>
