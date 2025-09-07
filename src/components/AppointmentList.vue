@@ -6,7 +6,7 @@
           <!-- Header Section -->
           <div class="header-section">
             <div class="appointment-count">
-              <span class="count-text">{{ appointments.length }} Randevu Bulundu</span>
+              <span class="count-text">{{ paginatedAppointments.length }} Appoinment Found</span>
             </div>
             <div class="create-button">
               <q-btn

@@ -1,7 +1,7 @@
 <template>
   <q-card class="q-mb-md">
     <q-card-section>
-      <div class="row q-gutter-md items-center">
+      <div class="row q-gutter-sm items-left">
         <!-- Filter Agent -->
         <div v-if="allAgents && allAgents.length > 0" class="col-12 col-sm-6">
           <q-avatar
@@ -168,8 +168,12 @@
             debounce="300"
             @update:model-value="applyFilters"
           >
-            <template v-slot:prepend>
-              <q-icon name="search" />
+            <template v-slot:append>
+              <q-icon
+                name="search"
+                class="bg-black text-white q-pa-sm"
+                style="border-radius: 4px"
+              />
             </template>
           </q-input>
         </div>
