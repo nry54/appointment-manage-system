@@ -1,164 +1,119 @@
 <template>
-  <q-card class="q-mb-md">
-    <q-card-section>
-      <div class="row q-gutter-sm items-left">
-        <!-- Filter Agent -->
-        <div v-if="allAgents && allAgents.length > 0" class="col-12 col-sm-6">
-          <q-avatar
-            v-for="agent in allAgents.slice(0, 5)"
-            :key="agent.id"
-            :style="{ backgroundColor: agent.fields.color }"
-            :class="{ 'selected-agent': isSelected(agent.id) }"
-            @click="selectAgent(agent.id)"
-            size="40px"
-            class="q-mr-sm cursor-pointer text-white"
-          >
-            {{ agentAvatarLetters(agent) }}
-          </q-avatar>
+  <q-row>
+    <div class="filter-container">
+      <div class="row items-center no-wrap q-col-gutter-md">
+        <div class="col-grow row q-col-gutter-sm items-center no-wrap filter-group-left">
+          <div class="col-auto">
+            <div v-if="allAgents && allAgents.length > 0" class="agent-selection-area">
+              <q-avatar
+                v-for="agent in allAgents.slice(0, 5)"
+                :key="agent.id"
+                :style="{ backgroundColor: agent.fields.color }"
+                :class="{ 'selected-agent': isSelected(agent.id) }"
+                @click="selectAgent(agent.id)"
+                size="45px"
+                class="cursor-pointer text-white agent-avatar"
+              >
+                {{ agentAvatarLetters(agent) }}
+              </q-avatar>
 
-          <q-avatar
-            v-if="allAgents.length > 5"
-            color="white"
-            text-color="dark"
-            size="40px"
-            class="more-avatars-indicator"
-          >
-            +{{ allAgents.length - 5 }}
-          </q-avatar>
+              <q-avatar
+                v-if="allAgents.length > 5"
+                color="white"
+                size="40px"
+                class="agent-avatar cursor-pointer more-avatars-indicator"
+                @click="agentSelectDialog = true"
+              >
+                +{{ allAgents.length - 5 }}
+              </q-avatar>
+            </div>
+          </div>
+
+          <div class="col-auto">
+            <q-select
+              v-model="filters.status"
+              :options="statusOptions"
+              outlined
+              dense
+              emit-value
+              map-options
+              @update:model-value="applyFilters"
+              style="min-width: 150px"
+            />
+          </div>
+
+          <div class="col-auto">
+            <div class="row q-gutter-md no-wrap date-filter-group">
+              <q-input
+                v-model="filters.dateFrom"
+                label="From"
+                outlined
+                dense
+                mask="DD-MM-YYYY HH:mm"
+                style="width: 180px"
+              >
+                <template v-slot:append>
+                  <q-icon name="event" class="cursor-pointer">
+                    <q-popup-proxy
+                      ref="dateFromDatePopup"
+                      cover
+                      transition-show="scale"
+                      transition-hide="scale"
+                    >
+                      <q-card>
+                        <q-card-section>
+                          <q-date
+                            v-model="filters.dateFrom"
+                            mask="DD-MM-YYYY HH:mm"
+                            color="primary"
+                            flat
+                            bordered
+                            @update:model-value="dateFromDatePopup.hide()"
+                          />
+                        </q-card-section>
+                      </q-card>
+                    </q-popup-proxy>
+                  </q-icon>
+                </template>
+              </q-input>
+
+              <q-input
+                v-model="filters.dateTo"
+                label="To"
+                outlined
+                dense
+                mask="DD-MM-YYYY HH:mm"
+                style="width: 180px"
+              >
+                <template v-slot:append>
+                  <q-icon name="event" class="cursor-pointer">
+                    <q-popup-proxy
+                      ref="dateToDatePopup"
+                      cover
+                      transition-show="scale"
+                      transition-hide="scale"
+                    >
+                      <q-card>
+                        <q-card-section>
+                          <q-date
+                            v-model="filters.dateTo"
+                            mask="DD-MM-YYYY HH:mm"
+                            color="primary"
+                            flat
+                            bordered
+                            @update:model-value="dateToDatePopup.hide()"
+                          />
+                        </q-card-section>
+                      </q-card>
+                    </q-popup-proxy>
+                  </q-icon>
+                </template>
+              </q-input>
+            </div>
+          </div>
         </div>
 
-        <!-- Durum Filtresi -->
-        <div class="col-12 col-sm-6 col-md-3">
-          <q-select
-            v-model="filters.status"
-            :options="statusOptions"
-            label="Durum"
-            outlined
-            dense
-            emit-value
-            map-options
-            @update:model-value="applyFilters"
-          />
-        </div>
-
-        <!-- Tarih Filtresi - From -->
-        <div class="col-12 col-sm-6 col-md-3">
-          <q-input filled dense v-model="filters.dateFrom" label="From" mask="DD-MM-YYYY HH:mm">
-            <template v-slot:append>
-              <div class="row q-gutter-xs">
-                <!-- Tarih İkonu -->
-                <q-icon name="event" class="cursor-pointer">
-                  <q-popup-proxy
-                    ref="dateFromDatePopup"
-                    anchor="bottom left"
-                    self="top left"
-                    transition-show="scale"
-                    transition-hide="scale"
-                  >
-                    <q-card>
-                      <q-card-section>
-                        <q-date
-                          v-model="filters.dateFrom"
-                          mask="DD-MM-YYYY"
-                          color="primary"
-                          flat
-                          bordered
-                          @update:model-value="confirmDateFrom"
-                        />
-                      </q-card-section>
-                    </q-card>
-                  </q-popup-proxy>
-                </q-icon>
-
-                <!-- Saat İkonu -->
-                <q-icon name="schedule" class="cursor-pointer">
-                  <q-popup-proxy
-                    ref="dateFromTimePopup"
-                    anchor="bottom right"
-                    self="top right"
-                    transition-show="scale"
-                    transition-hide="scale"
-                  >
-                    <q-card>
-                      <q-card-section>
-                        <q-time
-                          v-model="filters.dateFrom"
-                          mask="HH:mm"
-                          format24h
-                          color="primary"
-                          flat
-                          bordered
-                          @update:model-value="confirmDateFrom"
-                        />
-                      </q-card-section>
-                    </q-card>
-                  </q-popup-proxy>
-                </q-icon>
-              </div>
-            </template>
-          </q-input>
-        </div>
-
-        <!-- Tarih Filtresi - To -->
-        <div class="col-12 col-sm-6 col-md-3">
-          <q-input filled dense v-model="filters.dateTo" label="To" mask="DD-MM-YYYY HH:mm">
-            <template v-slot:append>
-              <div class="row q-gutter-xs">
-                <!-- Tarih İkonu -->
-                <q-icon name="event" class="cursor-pointer">
-                  <q-popup-proxy
-                    ref="dateToDatePopup"
-                    anchor="bottom left"
-                    self="top left"
-                    transition-show="scale"
-                    transition-hide="scale"
-                  >
-                    <q-card>
-                      <q-card-section>
-                        <q-date
-                          v-model="filters.dateToDate"
-                          mask="DD-MM-YYYY"
-                          color="primary"
-                          flat
-                          bordered
-                          @update:model-value="confirmDateToDate"
-                        />
-                      </q-card-section>
-                    </q-card>
-                  </q-popup-proxy>
-                </q-icon>
-
-                <!-- Saat İkonu -->
-                <q-icon name="schedule" class="cursor-pointer">
-                  <q-popup-proxy
-                    ref="dateToTimePopup"
-                    anchor="bottom right"
-                    self="top right"
-                    transition-show="scale"
-                    transition-hide="scale"
-                  >
-                    <q-card>
-                      <q-card-section>
-                        <q-time
-                          v-model="filters.dateToTime"
-                          mask="HH:mm"
-                          format24h
-                          color="primary"
-                          flat
-                          bordered
-                          @update:model-value="confirmDateToTime"
-                        />
-                      </q-card-section>
-                    </q-card>
-                  </q-popup-proxy>
-                </q-icon>
-              </div>
-            </template>
-          </q-input>
-        </div>
-
-        <!-- Search Filtresi - Sağa dayalı -->
-        <div class="col-12 col-sm-6 col-md-3">
+        <div class="col-auto search-input-container">
           <q-input
             v-model="filters.search"
             label="Search"
@@ -167,19 +122,19 @@
             clearable
             debounce="300"
             @update:model-value="applyFilters"
+            class="search-input primary-border"
+            style="min-width: 250px"
           >
             <template v-slot:append>
-              <q-icon
-                name="search"
-                class="bg-black text-white q-pa-sm"
-                style="border-radius: 4px"
-              />
+              <div class="search-icon-container">
+                <q-icon name="search" class="cursor-pointer search-icon" />
+              </div>
             </template>
           </q-input>
         </div>
       </div>
-    </q-card-section>
-  </q-card>
+    </div>
+  </q-row>
 </template>
 
 <script>
@@ -270,15 +225,8 @@ export default {
   },
 
   mounted() {
-    // Get all agents
     this.getAllAgents()
-
-    //TODO: Varsayılan dateFrom ataması: bugünün tarihi saat 09:00
-
-    // Varsayılan olarak status'u ALL olarak ayarlandı
     this.filters.status = (STATUS.find((s) => s.value === 'ALL') || {}).value
-
-    // Varsayılan olarak dateFrom'u bugünün tarihi saat 09:00 olarak ayarla (mask: DD-MM-YYYY HH:mm)
     const now = new Date()
     now.setHours(9, 0, 0, 0)
     this.filters.dateFrom = now
@@ -291,7 +239,7 @@ export default {
         hour12: false,
       })
       .replace(/\//g, '-')
-    this.filters.dateFromDate = now.toISOString().slice(0, 10) // YYYY-MM-DD
+    this.filters.dateFromDate = now.toISOString().slice(0, 10)
     this.filters.dateFromTime = now.toLocaleTimeString('en-GB', {
       hour: '2-digit',
       minute: '2-digit',
@@ -300,37 +248,27 @@ export default {
   },
 
   methods: {
-    // Fetching All Agents
     async getAllAgents() {
       try {
         const axios = (await import('axios')).default
-
         if (!this.apiUrl || !this.baseId || !this.agentTableId || !this.apiKey) {
           console.error('Please control .env file')
           return
         }
-
         const endpoint = `${this.apiUrl}/${this.baseId}/${this.agentTableId}`
-
-        // Added API key to header
         const config = {
           headers: {
             Authorization: `Bearer ${this.apiKey}`,
           },
         }
-        const response = await axios.get(endpoint, config) // Fetching agents
-
+        const response = await axios.get(endpoint, config)
         const { records } = response.data
-
         this.allAgents = records
       } catch (error) {
-        // Write console error
         console.error('Error while getting agent list:', error)
       }
     },
-    // Letter operations for agent avatar
     agentAvatarLetters(agent) {
-      // Take the first letters of agent first and last name
       let initials = ''
       const { agent_name, agent_surname } = agent.fields
       if (agent_name) {
@@ -352,26 +290,14 @@ export default {
     isSelected(agentId) {
       return this.filters.selectedAgents.includes(agentId)
     },
-    /**
-     * Tarih ve saati birleştirerek DD-MM-YYYY HH:mm formatında string döndürür
-     * @param {string} dateString - Tarih string'i (YYYY-MM-DD formatında)
-     * @param {string} timeString - Saat string'i (HH:mm formatında)
-     * @returns {string} - Birleştirilmiş tarih-saat string'i
-     */
     combineDateTime(dateString, timeString) {
-      // En az bir değer olmalı
       if (!dateString && !timeString) return ''
-
       try {
         let combinedDateTime = new Date(`${dateString}${timeString}`)
-
-        // Geçersiz tarih kontrolü
         if (!combinedDateTime || isNaN(combinedDateTime.getTime())) {
           console.warn('Invalid date created:', dateString, timeString)
           return ''
         }
-
-        // DD-MM-YYYY HH:mm formatında döndür (en-GB locale kullanarak)
         return combinedDateTime
           .toLocaleString('en-GB', {
             day: '2-digit',
@@ -387,80 +313,55 @@ export default {
         return ''
       }
     },
-
     applyFilters() {
-      // Search filtresini case-insensitive yap
       const processedFilters = {
         ...this.filters,
         search: this.filters.search ? this.filters.search.toLowerCase().trim() : '',
       }
-
       this.$emit('filter-changed', processedFilters)
     },
-
     confirmTimeSelection(field) {
-      // Popup'ı kapat
       this.$refs[field + 'TimePopup']?.hide()
       this.applyFilters()
     },
-
     confirmDateFrom() {
-      // Popup'ı kapat
       this.$refs.dateFromDatePopup.hide()
       this.updateDateFrom()
     },
-
     updateDateFrom() {
       console.log('date', this.filters.dateFrom)
-
-      // Tarih ve saati birleştir
       const combinedDate = this.combineDateTime(
         this.filters.dateFromDate,
         this.filters.dateFromTime,
       )
-
       if (combinedDate) {
         this.filters.dateFrom = combinedDate
         console.log('Date From updated to:', this.filters.dateFrom)
       }
-
-      // this.applyFilters()
     },
-
     confirmDateToDate() {
-      // Popup'ı kapat
       this.$refs.dateToDatePopup.hide()
       this.updateDateTo()
     },
-
     confirmDateToTime() {
-      // Popup'ı kapat
       this.$refs.dateToTimePopup.hide()
       this.updateDateTo()
     },
-
     updateDateTo() {
-      // Tarih ve saati birleştir
       const combinedDate = this.combineDateTime(this.filters.dateToDate, this.filters.dateToTime)
-
       if (combinedDate) {
         this.filters.dateTo = combinedDate
         console.log('Date To updated to:', this.filters.dateTo)
       }
-
       this.applyFilters()
     },
-
     setQuickFilter(value) {
       if (this.filters.quick === value) {
         this.filters.quick = ''
       } else {
         this.filters.quick = value
-
-        // Hızlı filtreye göre tarih aralığını ayarla
         const today = new Date()
         const todayStr = today.toISOString().split('T')[0]
-
         switch (value) {
           case 'today': {
             this.filters.dateFrom = todayStr
@@ -495,10 +396,8 @@ export default {
           }
         }
       }
-
       this.applyFilters()
     },
-
     clearFilters() {
       this.filters = {
         dateFrom: '',
@@ -513,7 +412,6 @@ export default {
       }
       this.applyFilters()
     },
-
     removeFilter(key) {
       this.filters[key] = ''
       this.applyFilters()
@@ -522,13 +420,219 @@ export default {
 }
 </script>
 
-<style scoped>
-.selected-agent {
-  border: 2px solid blue; /* Seçili ajanlar için görsel stil */
+<style lang="scss" scoped>
+.filter-container {
+  padding: 20px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e0e0e0;
 }
+
+.agent-selection-area {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+  padding-left: 8px;
+  min-height: 40px;
+}
+
+.agent-avatar {
+  margin-left: -8px;
+  border: 3px solid #ffffff;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+
+  &:first-child {
+    margin-left: 0;
+  }
+
+  &:hover {
+    z-index: 10;
+    transform: scale(1.1);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.selected-agent {
+  border: 3px solid #e91e63 !important;
+  z-index: 5;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px #e91e63;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    background-color: var(--q-color-primary);
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+  }
+}
+
 .more-avatars-indicator {
-  font-weight: bold;
-  background-color: #e0e0e0 !important; /* Arka plan rengini ayarlayın */
-  color: #333 !important; /* Metin rengini ayarlayın */
+  background-color: #f5f5f5 !important;
+  color: #666 !important;
+  margin-left: -8px;
+  border: 1px solid #000000;
+  transition: all 0.3s ease;
+  z-index: 1;
+
+  &.black-border {
+    border: 3px solid #000000 !important;
+  }
+}
+
+/* Search input styling */
+.search-input-container {
+  flex-grow: 1;
+  min-width: 250px;
+  max-width: 400px;
+}
+
+.search-input {
+  .q-field__append {
+    padding-right: 0;
+  }
+
+  &.primary-border {
+    .q-field__control {
+      border-color: var(--q-color-primary) !important;
+      border-width: 2px !important;
+    }
+
+    &.q-field--focused .q-field__control {
+      border-color: var(--q-color-primary) !important;
+      box-shadow: 0 0 0 1px rgba(var(--q-color-primary-rgb), 0.2) !important;
+    }
+  }
+}
+
+.search-icon-container {
+  background-color: #e91e63;
+  border: 2px solid #e91e63;
+  border-radius: 4px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  margin-right: -12px;
+}
+
+.search-icon {
+  color: #ffffff;
+  font-size: 20px;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: #f0f0f0;
+  }
+}
+
+/* Responsive design improvements */
+@media (max-width: 1024px) {
+  .filter-container {
+    padding: 16px;
+  }
+
+  .row.q-col-gutter-md {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .filter-group-left {
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .col-auto {
+    width: auto;
+    margin-bottom: 8px;
+  }
+
+  .date-filter-group {
+    width: 100%;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .q-input,
+  .q-select {
+    width: 100% !important;
+    min-width: 200px;
+  }
+
+  .search-input-container {
+    width: 100% !important;
+    min-width: unset !important;
+    max-width: unset !important;
+  }
+
+  .agent-selection-area {
+    justify-content: center;
+    padding: 8px 0;
+  }
+}
+
+@media (min-width: 1025px) {
+  .filter-group-left {
+    flex-grow: 1;
+    min-width: 60%;
+    align-items: center;
+  }
+
+  .search-input-container {
+    flex-grow: 1;
+    min-width: 30%;
+    max-width: 400px;
+  }
+
+  .date-filter-group {
+    align-items: center;
+  }
+}
+
+/* Additional improvements */
+.q-select,
+.q-input {
+  .q-field__label {
+    font-weight: 500;
+  }
+
+  &.q-field--outlined {
+    .q-field__control {
+      border-radius: 8px;
+    }
+  }
+}
+
+.date-filter-group {
+  .q-input {
+    .q-field__append .q-icon {
+      color: #666;
+      transition: color 0.2s ease;
+
+      &:hover {
+        color: var(--q-color-primary);
+      }
+    }
+  }
 }
 </style>
