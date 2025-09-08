@@ -185,6 +185,7 @@
 import { defineComponent } from 'vue'
 import AppoinmentDialog from 'src/components/AppointmentDialog.vue'
 import { DEFAULT_PAGINATION, STATUS } from '../constants'
+import { useAgentService } from '../stores/useAgentService'
 
 export default defineComponent({
   name: 'AppointmentList',
@@ -212,6 +213,12 @@ export default defineComponent({
     'updated-filter',
   ],
   components: { AppoinmentDialog },
+  setup() {
+    const agentService = useAgentService()
+    return {
+      agentService,
+    }
+  },
   data: function () {
     return {
       apiUrl: process.env.VUE_APP_API_BASE_URL || '',
@@ -324,9 +331,29 @@ export default defineComponent({
         this.paginatedAppointments = records // Keep original data
         this.filteredAppointments = filteredRecords // Keep filtered data
         this.currentPage = DEFAULT_PAGINATION.page // Reset to first page using constant
+
+        // Fetch agent details using centralized service
+        await this.fetchAgentDetailsForAppointments(records)
       } catch (error) {
         // Hata durumunda konsola yazdır
         console.error('Randevular alınırken hata oluştu:', error)
+      }
+    },
+    async fetchAgentDetailsForAppointments(appointments) {
+      // Extract unique agent IDs from all appointments
+      const uniqueAgentIds = new Set()
+      
+      appointments.forEach(appointment => {
+        if (appointment.fields.agent_id && Array.isArray(appointment.fields.agent_id)) {
+          appointment.fields.agent_id.forEach(agentId => {
+            if (agentId) uniqueAgentIds.add(agentId)
+          })
+        }
+      })
+
+      // Fetch agent details using the centralized service
+      if (uniqueAgentIds.size > 0) {
+        await this.agentService.getAgentsByIds([...uniqueAgentIds])
       }
     },
     onPageChange(page) {
@@ -344,28 +371,22 @@ export default defineComponent({
       return initials.toUpperCase() || '?'
     },
     getAgentColor(appointment, index) {
-      //TODO: Get all agents must be in one place, I should be able to use it both in the filter component and here by calling an endpoint.
-      // Check if agent_color field exists and has color for this index
+      // First try to get color from agent_id lookup using centralized service
+      if (appointment.fields.agent_id && appointment.fields.agent_id[index]) {
+        const agentId = appointment.fields.agent_id[index]
+        const agentDetails = this.agentService.agentDetails[agentId]
+        if (agentDetails && agentDetails.color) {
+          return agentDetails.color
+        }
+      }
+      
+      // Fallback to agent_color field if available
       if (appointment.fields.agent_color && appointment.fields.agent_color[index]) {
         return appointment.fields.agent_color[index]
       }
-      // Fallback to default colors
-      return this.getDefaultStaffColor(index)
-    },
-    getDefaultStaffColor(index) {
-      const colors = [
-        '#e91e63',
-        '#9c27b0',
-        '#673ab7',
-        '#3f51b5',
-        '#2196f3',
-        '#03a9f4',
-        '#00bcd4',
-        '#009688',
-        '#4caf50',
-        '#8bc34a',
-      ]
-      return colors[index % colors.length]
+      
+      // Use centralized service for default colors with comprehensive palette
+      return this.agentService.getAgentColor(null, index)
     },
     getStatusText(appointment) {
       // Eğer iptal edilmişse
