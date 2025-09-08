@@ -72,7 +72,6 @@ export default defineComponent({
       }
     },
     filterChanged(processedFilters) {
-      // Filtre değerlerini state'e kaydet
       this.currentFilters = processedFilters
     },
   },

@@ -515,6 +515,36 @@ export default defineComponent({
       const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date)
       return timeRemaining !== 'PAST'
     },
+    parseFilterDate(dateString) {
+      // Parse date string in format: DD-MM-YYYY HH:mm
+      if (!dateString) return null
+
+      try {
+        // Split date and time parts
+        const [datePart, timePart] = dateString.split(' ')
+        const [day, month, year] = datePart.split('-')
+        const [hours, minutes] = timePart ? timePart.split(':') : ['00', '00']
+
+        // Create Date object (month is 0-indexed)
+        const date = new Date(
+          parseInt(year),
+          parseInt(month) - 1,
+          parseInt(day),
+          parseInt(hours),
+          parseInt(minutes),
+        )
+
+        // Validate the date
+        if (isNaN(date.getTime())) {
+          return null
+        }
+
+        return date
+      } catch (error) {
+        console.warn('Error parsing filter date:', dateString, error)
+        return null
+      }
+    },
     filterRecords(records, filters) {
       // filters objesindeki filtrelere göre records listesini filtrele
       if (!filters || Object.keys(filters).length === 0) {
@@ -568,6 +598,31 @@ export default defineComponent({
 
               // Check if the search term is found in any of the fields
               if (!searchFields.includes(filterValue)) {
+                return false
+              }
+            }
+          }
+
+          // Date range filtering
+          if (key === 'dateFrom' || key === 'dateTo') {
+            if (!record.fields.appointment_date) {
+              continue // Skip records without appointment date
+            }
+
+            const appointmentDate = new Date(record.fields.appointment_date)
+
+            if (key === 'dateFrom' && filterValue) {
+              // Parse dateFrom (format: DD-MM-YYYY HH:mm) - INCLUSIVE
+              const fromDate = this.parseFilterDate(filterValue)
+              if (fromDate && appointmentDate < fromDate) {
+                return false
+              }
+            }
+
+            if (key === 'dateTo' && filterValue) {
+              // Parse dateTo (format: DD-MM-YYYY HH:mm) - INCLUSIVE
+              const toDate = this.parseFilterDate(filterValue)
+              if (toDate && appointmentDate > toDate) {
                 return false
               }
             }

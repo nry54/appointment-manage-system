@@ -364,6 +364,8 @@ export default {
         )
         if (combinedDate) {
           this.filters.dateFrom = combinedDate
+
+          this.applyFilters()
         }
       }
     },
@@ -372,6 +374,7 @@ export default {
         const combinedDate = this.combineDateTime(this.filters.dateToDate, this.filters.dateToTime)
         if (combinedDate) {
           this.filters.dateTo = combinedDate
+          this.applyFilters()
         }
       }
     },
