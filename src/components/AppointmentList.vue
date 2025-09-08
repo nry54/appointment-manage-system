@@ -285,7 +285,6 @@ export default defineComponent({
       return Math.min(end, this.filteredAppointments.length)
     },
   },
-
   watch: {
     filters: {
       handler(newFilters) {
@@ -295,7 +294,6 @@ export default defineComponent({
       immediate: false,
     },
   },
-
   mounted() {
     this.init()
   },
@@ -551,6 +549,28 @@ export default defineComponent({
             }
             // Diğer status değerleri için ek kontroller eklenebilir
             continue
+          }
+
+          if (key === 'search') {
+            if (filterValue) {
+              const { appointment_address, contact_name, contact_email, contact_phone } =
+                record.fields
+
+              // Create a combined search string from all relevant fields
+              const searchFields = [
+                appointment_address || '',
+                (contact_name && contact_name[0]) || '',
+                (contact_email && contact_email[0]) || '',
+                (contact_phone && contact_phone[0]) || '',
+              ]
+                .join(' ')
+                .toLowerCase()
+
+              // Check if the search term is found in any of the fields
+              if (!searchFields.includes(filterValue)) {
+                return false
+              }
+            }
           }
         }
         return true

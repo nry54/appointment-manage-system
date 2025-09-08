@@ -262,15 +262,6 @@ export default {
     },
   },
 
-  watch: {
-    filters: {
-      handler() {
-        this.applyFilters()
-      },
-      deep: true,
-    },
-  },
-
   mounted() {
     this.getAllAgents()
     this.filters.status = (STATUS.find((s) => s.value === 'ALL') || {}).value
