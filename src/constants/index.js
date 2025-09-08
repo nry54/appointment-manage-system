@@ -6,8 +6,8 @@ const STATUS = [
 ]
 
 const DEFAULT_PAGINATION = {
-  sortBy: 'appointment_date',
-  descending: false,
+  sortBy: 'fields.appointment_date',
+  descending: true,
   page: 1,
   rowsPerPage: 10,
 }

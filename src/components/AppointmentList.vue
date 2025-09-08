@@ -6,7 +6,7 @@
           <!-- Header Section -->
           <div class="header-section">
             <div class="appointment-count">
-              <span class="count-text">{{ paginatedAppointments.length }} Appoinment Found</span>
+              <span class="count-text">{{ filteredAppointments.length }} Appointment Found</span>
             </div>
             <div class="create-button">
               <q-btn
@@ -23,13 +23,13 @@
           <!-- Loading State -->
           <div v-if="loading" class="loading-container">
             <q-spinner size="40px" color="primary" />
-            <div class="loading-text">Randevular yükleniyor...</div>
+            <div class="loading-text">Loading appoinments...</div>
           </div>
 
           <!-- Appointment Cards -->
           <div v-else class="appointment-cards">
             <div
-              v-for="appointment in paginatedAppointments"
+              v-for="appointment in paginatedData"
               :key="appointment.id"
               class="appointment-card"
             >
@@ -63,24 +63,35 @@
 
               <!-- Status Section -->
               <div class="status-section">
-                <div class="status-pill-container">
-                  <div class="status-pill" :class="getStatusPillClass(appointment)">
-                    <div class="status-indicator">
-                      <div class="status-text">
-                        {{ getStatusText(appointment) }}
-                      </div>
-                      <div
-                        v-if="!(appointment.fields.is_cancelled || appointment.fields.is_completed)"
-                        class="time-remaining"
-                      >
-                        {{ getTimeRemaining(appointment.fields.appointment_date) }}
-                      </div>
+                <div class="status-pill">
+                  <div class="status-indicator">
+                    <div class="status-text" :class="getStatusTextClass(appointment)">
+                      {{ getStatusText(appointment) }}
                     </div>
-                    <div class="date-section">
-                      <q-icon name="schedule" class="clock-icon" />
-                      <span class="appointment-date-text">{{
-                        formatDate(appointment.fields.appointment_date)
-                      }}</span>
+                    <div
+                      v-if="
+                        !appointment.fields.is_cancelled &&
+                        !appointment.fields.is_completed &&
+                        getTimeRemaining(appointment.fields.appointment_date) &&
+                        !getTimeRemaining(appointment.fields.appointment_date).includes('PAST')
+                      "
+                      class="time-remaining"
+                    >
+                      {{ getTimeRemaining(appointment.fields.appointment_date) }}
+                    </div>
+                  </div>
+                  <div class="date-time-section">
+                    <div class="date-time-info">
+                      <div class="date-time-row">
+                        <q-icon name="schedule" class="clock-icon" />
+                        <span class="appointment-date-text">{{
+                          formatDate(appointment.fields.appointment_date)
+                        }}</span>
+
+                        <span class="appointment-time-text">{{
+                          formatTime(appointment.fields.appointment_date)
+                        }}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -88,36 +99,76 @@
 
               <!-- Staff Section -->
               <div class="staff-section">
-                <!--
-                <div class="staff-avatars">
-                  <div
-                    v-for="(staff, index) in getStaffMembers(appointment)"
+                <div
+                  v-if="appointment.fields.agent_name && appointment.fields.agent_name.length > 0"
+                  class="agent-avatars"
+                >
+                  <q-avatar
+                    v-for="(agentName, index) in appointment.fields.agent_name.slice(0, 3)"
                     :key="index"
-                    class="staff-avatar"
-                    :style="{ backgroundColor: getStaffColor(index) }"
+                    :style="{ backgroundColor: getAgentColor(appointment, index) }"
+                    size="40px"
+                    class="text-white agent-avatar"
                   >
-                    {{ staff.initials }}
-                  </div>
-                  <div v-if="getAdditionalStaffCount(appointment) > 0" class="additional-staff">
-                    +{{ getAdditionalStaffCount(appointment) }}
-                  </div>
+                    {{
+                      getAgentInitials(
+                        agentName,
+                        appointment.fields.agent_surname
+                          ? appointment.fields.agent_surname[index]
+                          : '',
+                      )
+                    }}
+                  </q-avatar>
+
+                  <q-avatar
+                    v-if="appointment.fields.agent_name.length > 3"
+                    color="grey-6"
+                    size="40px"
+                    class="text-white agent-avatar additional-staff"
+                  >
+                    +{{ appointment.fields.agent_name.length - 3 }}
+                  </q-avatar>
                 </div>
-                -->
               </div>
             </div>
           </div>
 
           <!-- Pagination -->
-          <div v-if="totalPages > 1" class="pagination-section">
-            <q-pagination
-              v-model="currentPage"
-              :max="totalPages"
-              :max-pages="5"
-              direction-links
-              boundary-links
-              color="primary"
-              @update:model-value="onPageChange"
-            />
+          <div v-if="totalPages > 1" class="pagination-container">
+            <div class="pagination-info">
+              <span class="pagination-text">
+                Showing {{ startItem }} to {{ endItem }} of
+                {{ filteredAppointments.length }} appointments
+              </span>
+              <div class="rows-per-page-selector">
+                <span class="rows-label">Rows per page:</span>
+                <q-select
+                  v-model="rowsPerPage"
+                  :options="[5, 10, 15, 20, 25, 50]"
+                  dense
+                  outlined
+                  @update:model-value="updateRowsPerPage"
+                  style="width: 80px; margin-left: 8px"
+                  class="rows-select"
+                />
+              </div>
+            </div>
+            <div class="pagination-controls">
+              <q-pagination
+                v-model="currentPage"
+                :max="totalPages"
+                :max-pages="7"
+                direction-links
+                boundary-links
+                color="primary"
+                text-color="grey-7"
+                active-design="unelevated"
+                active-color="primary"
+                active-text-color="white"
+                @update:model-value="onPageChange"
+                class="custom-pagination"
+              />
+            </div>
           </div>
         </div>
         <!-- Randevu Ekleme/Düzenleme Dialog -->
@@ -168,6 +219,7 @@ export default defineComponent({
       appoinmentTableId: process.env.VUE_APP_API_APPOINMENT_TABLE_ID || '',
       apiKey: process.env.VUE_APP_API_KEY || '',
       paginatedAppointments: [],
+      filteredAppointments: [],
       // Pagination properties using DEFAULT_PAGINATION constants
       currentPage: DEFAULT_PAGINATION.page,
       rowsPerPage: DEFAULT_PAGINATION.rowsPerPage,
@@ -182,21 +234,58 @@ export default defineComponent({
   },
   computed: {
     totalPages() {
-      return Math.ceil(this.paginatedAppointments.length / this.rowsPerPage)
+      return Math.ceil(this.filteredAppointments.length / this.rowsPerPage)
     },
     paginatedData() {
+      let sortedData = [...this.filteredAppointments]
+
+      // Apply sorting based on sortBy and descending properties
+      if (this.sortBy) {
+        sortedData.sort((a, b) => {
+          let aValue = this.getNestedValue(a, this.sortBy)
+          let bValue = this.getNestedValue(b, this.sortBy)
+
+          // Handle date sorting
+          if (this.sortBy.includes('date')) {
+            aValue = new Date(aValue || 0)
+            bValue = new Date(bValue || 0)
+          }
+
+          // Handle string comparison
+          if (typeof aValue === 'string' && typeof bValue === 'string') {
+            aValue = aValue.toLowerCase()
+            bValue = bValue.toLowerCase()
+          }
+
+          if (aValue < bValue) return this.descending ? 1 : -1
+          if (aValue > bValue) return this.descending ? -1 : 1
+          return 0
+        })
+      }
+
+      // Apply pagination
       const start = (this.currentPage - 1) * this.rowsPerPage
       const end = start + this.rowsPerPage
-      return this.paginatedAppointments.slice(start, end)
+      return sortedData.slice(start, end)
+    },
+    startItem() {
+      return this.filteredAppointments.length === 0
+        ? 0
+        : (this.currentPage - 1) * this.rowsPerPage + 1
+    },
+    endItem() {
+      const end = this.currentPage * this.rowsPerPage
+      return Math.min(end, this.filteredAppointments.length)
     },
   },
 
   watch: {
     filters: {
-      handler() {
-        this.init()
+      handler(newFilters) {
+        this.applyFilters(newFilters)
       },
       deep: true,
+      immediate: false,
     },
   },
 
@@ -232,7 +321,9 @@ export default defineComponent({
         let filteredRecords = records
 
         filteredRecords = this.filterRecords(records, this.filters)
-        this.paginatedAppointments = filteredRecords
+        this.paginatedAppointments = records // Keep original data
+        this.filteredAppointments = filteredRecords // Keep filtered data
+        this.currentPage = DEFAULT_PAGINATION.page // Reset to first page using constant
       } catch (error) {
         // Hata durumunda konsola yazdır
         console.error('Randevular alınırken hata oluştu:', error)
@@ -241,78 +332,123 @@ export default defineComponent({
     onPageChange(page) {
       this.currentPage = page
     },
+    getAgentInitials(name, surname) {
+      // Handle array elements - get initials from agent name and surname
+      let initials = ''
+      if (name && name.trim()) {
+        initials += name.trim().charAt(0)
+      }
+      if (surname && surname.trim()) {
+        initials += surname.trim().charAt(0)
+      }
+      return initials.toUpperCase() || '?'
+    },
+    getAgentColor(appointment, index) {
+      //TODO: Get all agents must be in one place, I should be able to use it both in the filter component and here by calling an endpoint.
+      // Check if agent_color field exists and has color for this index
+      if (appointment.fields.agent_color && appointment.fields.agent_color[index]) {
+        return appointment.fields.agent_color[index]
+      }
+      // Fallback to default colors
+      return this.getDefaultStaffColor(index)
+    },
+    getDefaultStaffColor(index) {
+      const colors = [
+        '#e91e63',
+        '#9c27b0',
+        '#673ab7',
+        '#3f51b5',
+        '#2196f3',
+        '#03a9f4',
+        '#00bcd4',
+        '#009688',
+        '#4caf50',
+        '#8bc34a',
+      ]
+      return colors[index % colors.length]
+    },
     getStatusText(appointment) {
       // Eğer iptal edilmişse
       if (appointment.fields.is_cancelled) {
         return STATUS.find((s) => s.value === 'CANCELLED')?.label || 'Cancelled'
       }
 
-      // Eğer tamamlanmışsa
-      if (appointment.fields.is_completed) {
-        return STATUS.find((s) => s.value === 'COMPLETED')?.label || 'Completed'
-      }
-
       // UPCOMING durumunda tarihe göre dinamik metin
       if (appointment.fields.appointment_date) {
         const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date)
 
-        if (timeRemaining === 'Past') return 'Overdue'
-        if (timeRemaining === 'Today') return 'Today'
-        if (timeRemaining === '1 day') return 'Tomorrow'
-        if (timeRemaining.includes('days')) return 'Upcoming'
-        if (timeRemaining.includes('weeks')) return 'Upcoming'
-        if (timeRemaining.includes('months')) return 'Upcoming'
+        if (timeRemaining === 'PAST') {
+          // Eğer tamamlanmışsa
+          return 'Completed'
+        }
+
+        if (timeRemaining.includes('minute') || timeRemaining.includes('hour')) return 'Upcoming'
+        if (timeRemaining === '1 day') return 'Upcoming'
+        if (timeRemaining.includes('day') && !timeRemaining.includes('week')) return 'Upcoming'
+        if (timeRemaining.includes('week') || timeRemaining.includes('month')) return 'Upcoming'
       }
 
       // Varsayılan olarak UPCOMING
       return STATUS.find((s) => s.value === 'UPCOMING')?.label || 'Upcoming'
     },
-    getStatusPillClass(appointment) {
-      // Eğer iptal edilmişse
+    getStatusTextClass(appointment) {
+      // Return dynamic color class based on appointment status
       if (appointment.fields.is_cancelled) {
-        return 'status-pill-canceled'
+        return 'status-text-cancelled'
       }
 
-      // Eğer tamamlanmışsa
-      if (appointment.fields.is_completed) {
-        return 'status-pill-completed'
-      }
-
-      // UPCOMING durumunda tarihe göre dinamik sınıf
       if (appointment.fields.appointment_date) {
         const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date)
 
-        if (timeRemaining === 'Past') return 'status-pill-overdue'
-        if (timeRemaining === 'Today') return 'status-pill-today'
-        if (timeRemaining === '1 day') return 'status-pill-tomorrow'
-        if (timeRemaining.includes('days')) return 'status-pill-upcoming'
-        if (timeRemaining.includes('weeks')) return 'status-pill-upcoming'
-        if (timeRemaining.includes('months')) return 'status-pill-upcoming'
+        if (timeRemaining.includes('PAST')) return 'status-text-completed'
+        if (timeRemaining.includes('minute') || timeRemaining.includes('hour'))
+          return 'status-text-upcoming'
+        if (timeRemaining === '1 day') return 'status-text-tomorrow'
+        if (timeRemaining.includes('day') && !timeRemaining.includes('week'))
+          return 'status-text-upcoming'
+        if (timeRemaining.includes('week') || timeRemaining.includes('month'))
+          return 'status-text-upcoming'
       }
 
-      // Varsayılan olarak UPCOMING
-      return 'status-pill-upcoming'
+      return 'status-text-upcoming'
     },
     getTimeRemaining(appointmentDate) {
       if (!appointmentDate) return ''
-      // Tarih fonksiyonlarının kalan (difference) fonksiyonunu kullanalım
+
       const now = new Date()
       const appointment = new Date(appointmentDate)
 
-      // Sadece tarih kısmını karşılaştırmak için saatleri sıfırla
-      now.setHours(0, 0, 0, 0)
-      appointment.setHours(0, 0, 0, 0)
-
-      // Kalan gün sayısını hesapla
+      // Calculate the exact time difference in milliseconds
       const diffTime = appointment.getTime() - now.getTime()
+      const diffMinutes = Math.floor(diffTime / (1000 * 60))
+      const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
 
-      if (diffDays < 0) return 'Past'
-      if (diffDays === 0) return 'Today'
-      if (diffDays === 1) return '1 day'
-      if (diffDays < 7) return `${diffDays} days`
-      if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks`
-      return `${Math.floor(diffDays / 30)} months`
+      // If appointment is in the past
+      if (diffTime < 0) {
+        return 'PAST'
+      }
+
+      // If appointment is within the next 24 hours
+      if (diffHours < 24) {
+        if (diffHours === 0) {
+          return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`
+        }
+        return `${diffHours} hour${diffHours !== 1 ? 's' : ''}`
+      }
+
+      // If appointment is more than 24 hours away
+      if (diffDays < 7) {
+        return `${diffDays} day${diffDays !== 1 ? 's' : ''}`
+      }
+
+      if (diffDays < 30) {
+        const weeks = Math.floor(diffDays / 7)
+        return `${weeks} week${weeks !== 1 ? 's' : ''}`
+      }
+
+      const months = Math.floor(diffDays / 30)
+      return `${months} month${months !== 1 ? 's' : ''}`
     },
     formatDate(dateString) {
       if (!dateString) return '-'
@@ -323,14 +459,10 @@ export default defineComponent({
         year: 'numeric',
       })
     },
-    formatTime(timeString) {
-      if (!timeString) return '-'
-      // Eğer timeString sadece saat:dakika formatındaysa
-      if (timeString.includes(':')) {
-        return timeString
-      }
-      // Eğer tam datetime ise, sadece saat kısmını al
-      const date = new Date(timeString)
+    formatTime(dateTimeString) {
+      if (!dateTimeString) return '-'
+
+      const date = new Date(dateTimeString)
       return date.toLocaleTimeString('en-GB', {
         hour: '2-digit',
         minute: '2-digit',
@@ -373,6 +505,31 @@ export default defineComponent({
         }
         return true
       })
+    },
+    applyFilters(filters = this.filters) {
+      const filteredRecords = this.filterRecords(this.paginatedAppointments, filters)
+      this.filteredAppointments = filteredRecords
+      this.currentPage = DEFAULT_PAGINATION.page // Reset to first page when filters change using constant
+    },
+    getNestedValue(obj, path) {
+      return path.split('.').reduce((current, key) => {
+        return current && current[key] !== undefined ? current[key] : null
+      }, obj)
+    },
+    updateRowsPerPage(newRowsPerPage) {
+      this.rowsPerPage = newRowsPerPage
+      this.currentPage = DEFAULT_PAGINATION.page // Reset to first page using constant
+    },
+    updateSorting(sortBy, descending = false) {
+      this.sortBy = sortBy
+      this.descending = descending
+      this.currentPage = DEFAULT_PAGINATION.page // Reset to first page using constant
+    },
+    resetPagination() {
+      this.currentPage = DEFAULT_PAGINATION.page
+      this.rowsPerPage = DEFAULT_PAGINATION.rowsPerPage
+      this.sortBy = DEFAULT_PAGINATION.sortBy
+      this.descending = DEFAULT_PAGINATION.descending
     },
     openAppointmentDialog() {
       this.appoinment.show = true
@@ -433,10 +590,11 @@ export default defineComponent({
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   border: 1px solid #e9ecef;
   display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr;
-  gap: 20px;
+  grid-template-columns: 2.5fr 2fr 2.5fr 1.5fr;
+  gap: 24px;
   align-items: center;
   transition: all 0.2s ease;
+  min-height: 120px;
 }
 
 .appointment-card:hover {
@@ -444,11 +602,12 @@ export default defineComponent({
   transform: translateY(-2px);
 }
 
-/* contact Section */
+/* Contact Section */
 .contact-section {
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  min-height: 80px;
 }
 
 .contact-icons {
@@ -456,6 +615,7 @@ export default defineComponent({
   flex-direction: column;
   gap: 8px;
   margin-top: 4px;
+  min-width: 20px;
 }
 
 .contact-icon {
@@ -467,6 +627,7 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
 }
 
 .contact-name {
@@ -486,19 +647,22 @@ export default defineComponent({
 /* Address Section */
 .address-section {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
+  min-height: 80px;
 }
 
 .address-icon {
   font-size: 18px;
   color: #6c757d;
+  min-width: 20px;
 }
 
 .address-details {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
 }
 
 .address-street {
@@ -519,6 +683,8 @@ export default defineComponent({
   display: flex;
   justify-content: center;
   align-items: center;
+  width: 100%;
+  max-width: 280px;
 }
 
 .status-pill-container {
@@ -527,16 +693,18 @@ export default defineComponent({
 }
 
 .status-pill {
-  border-radius: 25px;
-  padding: 8px 16px;
+  border-radius: 20px;
+  padding: 10px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: relative;
-  min-height: 50px;
+  min-height: 60px;
+  max-height: 80px;
   transition: all 0.3s ease;
   background: linear-gradient(135deg, #e91e63, #f06292);
-  box-shadow: 0 4px 12px rgba(233, 30, 99, 0.3);
+  box-shadow: 0 3px 10px rgba(233, 30, 99, 0.3);
+  width: 100%;
 }
 
 .status-pill-today {
@@ -568,50 +736,138 @@ export default defineComponent({
 
 .status-indicator {
   background: white;
-  border-radius: 20px;
-  padding: 8px 16px;
+  border-radius: 14px;
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 100px;
+  min-width: 90px;
+  max-width: 120px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.status-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.status-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  text-align: center;
 }
 
 .status-text {
   font-weight: 700;
-  font-size: 12px;
-  color: #ff9800;
+  font-size: 11px;
   line-height: 1.2;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  text-align: center;
+}
+
+/* Dynamic status text colors */
+.status-text-overdue {
+  color: #f44336; /* Red for overdue */
+}
+
+.status-text-today {
+  color: #ff9800; /* Orange for today */
+}
+
+.status-text-tomorrow {
+  color: #ffc107; /* Amber for tomorrow */
+}
+
+.status-text-upcoming {
+  color: #ffc107; /* Amber for tomorrow */
+}
+
+.status-text-completed {
+  color: #4caf50; /* Green for completed */
+}
+
+.status-text-cancelled {
+  color: #f44336; /* Red for cancelled */
 }
 
 .time-remaining {
-  font-weight: 600;
-  font-size: 11px;
-  color: #333;
+  font-weight: 500;
+  font-size: 9px;
+  color: #666;
   line-height: 1.2;
+  text-transform: lowercase;
+  letter-spacing: 0.2px;
+  text-align: center;
   margin-top: 2px;
 }
 
-.date-section {
+.date-time-section {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   color: white;
   font-weight: 600;
+  justify-content: flex-start;
+  flex: 1;
+  min-width: 0;
+  padding: 4px 4px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
 .clock-icon {
-  font-size: 16px;
+  font-size: 18px;
   color: white;
+  opacity: 0.95;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.date-time-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.date-time-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .appointment-date-text {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: white;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.appointment-time-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.2;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.time-separator {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+  font-size: 12px;
+  margin: 0 2px;
 }
 
 /* Date/Time Section */
@@ -651,60 +907,204 @@ export default defineComponent({
   justify-content: flex-end;
 }
 
-.staff-avatars {
+.agent-avatars {
+  display: flex;
+  align-items: center;
+  gap: -8px; /* Negative gap for overlapping effect */
+}
+
+.agent-avatar {
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-weight: 600;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.agent-avatar:hover {
+  transform: translateY(-2px) scale(1.05);
+  z-index: 2;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.agent-avatar:not(:first-child) {
+  margin-left: -8px;
+}
+
+.additional-staff {
+  background-color: #6c757d !important;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Pagination */
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 32px;
+  padding: 24px 0;
+  border-top: 1px solid #e9ecef;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  padding: 20px 24px;
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.pagination-text {
+  font-size: 14px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.rows-per-page-selector {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.staff-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 600;
-  font-size: 12px;
-  border: 2px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.rows-label {
+  font-size: 14px;
+  color: #6c757d;
+  font-weight: 500;
 }
 
-.additional-staff {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background-color: #6c757d;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 600;
-  font-size: 11px;
-  border: 2px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.rows-select {
+  min-width: 80px;
 }
 
-/* Pagination */
-.pagination-section {
+.pagination-controls {
   display: flex;
-  justify-content: center;
-  margin-top: 32px;
-  padding: 20px 0;
+  justify-content: flex-end;
+  flex: 1;
+}
+
+.custom-pagination {
+  background: transparent;
+}
+
+/* Custom pagination button styling */
+.custom-pagination :deep(.q-btn) {
+  min-width: 40px;
+  height: 40px;
+  margin: 0 2px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.custom-pagination :deep(.q-btn--unelevated) {
+  background: var(--q-color-primary) !important;
+  color: black !important;
+  box-shadow: 0 2px 8px #e91e63;
+}
+
+.custom-pagination :deep(.q-btn:not(.q-btn--unelevated)) {
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #e9ecef;
+}
+
+.custom-pagination :deep(.q-btn:not(.q-btn--unelevated):hover) {
+  background: #e9ecef;
+  color: #495057;
+  border-color: #dee2e6;
+  transform: translateY(-1px);
+}
+
+.custom-pagination :deep(.q-btn--unelevated:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(var(--q-color-primary-rgb), 0.4);
+  box-shadow: 0 2px 8px #e91e63;
+}
+
+/* Responsive pagination */
+@media (max-width: 768px) {
+  .pagination-container {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+
+  .pagination-controls {
+    justify-content: center;
+  }
+
+  .custom-pagination :deep(.q-btn) {
+    min-width: 36px;
+    height: 36px;
+    margin: 0 1px;
+  }
 }
 
 /* Responsive Design */
 @media (max-width: 1200px) {
   .appointment-card {
-    grid-template-columns: 2fr 1fr 1fr 1fr;
-    gap: 16px;
+    grid-template-columns: 2fr 1.5fr 2fr 1fr;
+    gap: 20px;
   }
 
   .staff-section {
     grid-column: 1 / -1;
     justify-content: flex-start;
     margin-top: 12px;
+  }
+}
+
+/* Tablet responsive */
+@media (max-width: 1024px) {
+  .status-pill {
+    padding: 12px 16px;
+  }
+
+  .status-indicator {
+    min-width: 100px;
+    padding: 10px 16px;
+  }
+
+  .status-main {
+    gap: 6px;
+    flex-direction: column;
+  }
+
+  .status-text {
+    font-size: 12px;
+  }
+
+  .time-remaining {
+    font-size: 10px;
+  }
+
+  .date-time-section {
+    padding: 3px 6px;
+    gap: 10px;
+  }
+
+  .clock-icon {
+    font-size: 16px;
+  }
+
+  .appointment-date-text {
+    font-size: 12px;
+  }
+
+  .appointment-time-text {
+    font-size: 11px;
+    padding: 1px 6px;
+  }
+
+  .date-time-row {
+    gap: 6px;
   }
 }
 
@@ -729,6 +1129,25 @@ export default defineComponent({
     max-width: 100%;
   }
 
+  .status-pill {
+    padding: 14px 18px;
+  }
+
+  .status-indicator {
+    min-width: 110px;
+    padding: 10px 18px;
+  }
+
+  .date-time-section {
+    gap: 10px;
+    padding: 4px 8px;
+  }
+
+  .date-time-row {
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+
   .staff-section {
     justify-content: flex-start;
     margin-top: 0;
@@ -738,17 +1157,57 @@ export default defineComponent({
 @media (max-width: 480px) {
   .status-pill {
     flex-direction: column;
-    gap: 8px;
-    padding: 12px 16px;
+    gap: 12px;
+    padding: 16px 20px;
   }
 
   .status-indicator {
     min-width: auto;
     width: 100%;
+    padding: 16px 24px;
   }
 
-  .date-section {
+  .status-main {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .status-text {
+    font-size: 14px;
+  }
+
+  .time-remaining {
+    font-size: 12px;
+  }
+
+  .date-time-section {
     justify-content: center;
+    gap: 12px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .clock-icon {
+    font-size: 20px;
+  }
+
+  .appointment-date-text {
+    font-size: 14px;
+  }
+
+  .appointment-time-text {
+    font-size: 13px;
+    padding: 3px 10px;
+  }
+
+  .date-time-row {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .time-separator {
+    font-size: 14px;
   }
 }
 

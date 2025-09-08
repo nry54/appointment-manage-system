@@ -11,7 +11,7 @@
                 :style="{ backgroundColor: agent.fields.color }"
                 :class="{ 'selected-agent': isSelected(agent.id) }"
                 @click="selectAgent(agent.id)"
-                size="45px"
+                size="40px"
                 class="cursor-pointer text-white agent-avatar"
               >
                 {{ agentAvatarLetters(agent) }}
@@ -20,7 +20,7 @@
               <q-avatar
                 v-if="allAgents.length > 5"
                 color="white"
-                size="40px"
+                size="35px"
                 class="agent-avatar cursor-pointer more-avatars-indicator"
                 @click="agentSelectDialog = true"
               >
@@ -45,32 +45,56 @@
           <div class="col-auto">
             <div class="row q-gutter-md no-wrap date-filter-group">
               <q-input
-                v-model="filters.dateFrom"
+                :model-value="filters.dateFrom"
+                @update:model-value="(val) => (filters.dateFrom = val)"
                 label="From"
                 outlined
                 dense
-                mask="DD-MM-YYYY HH:mm"
+                placeholder="DD-MM-YYYY HH:mm"
                 style="width: 180px"
               >
                 <template v-slot:append>
                   <q-icon name="event" class="cursor-pointer">
                     <q-popup-proxy
                       ref="dateFromDatePopup"
-                      cover
+                      anchor="bottom left"
+                      self="top left"
+                      :offset="[0, 10]"
                       transition-show="scale"
                       transition-hide="scale"
                     >
-                      <q-card>
-                        <q-card-section>
-                          <q-date
-                            v-model="filters.dateFrom"
-                            mask="DD-MM-YYYY HH:mm"
-                            color="primary"
-                            flat
-                            bordered
-                            @update:model-value="dateFromDatePopup.hide()"
-                          />
+                      <q-card style="width: 680px">
+                        <q-card-section class="bg-primary text-white">
+                          <div class="text-h6">
+                            <q-icon name="event_note" size="sm" color="grey-8" /> Select Date & Time
+                          </div>
                         </q-card-section>
+                        <q-card-section class="row q-gutter-md q-pa-md">
+                          <div class="col-auto">
+                            <q-date
+                              v-model="filters.dateFromDate"
+                              mask="YYYY-MM-DD"
+                              color="primary"
+                              flat
+                              bordered
+                              @update:model-value="updateDateFrom"
+                              class="shadow-1"
+                            />
+                          </div>
+                          <div class="col-auto">
+                            <q-time
+                              v-model="filters.dateFromTime"
+                              mask="HH:mm"
+                              color="primary"
+                              format24h
+                              flat
+                              @update:model-value="updateDateFrom"
+                              class="shadow-1"
+                              style="border: 1px solid #e0e0e0; border-radius: 8px"
+                            />
+                          </div>
+                        </q-card-section>
+                        <q-separator />
                       </q-card>
                     </q-popup-proxy>
                   </q-icon>
@@ -78,31 +102,54 @@
               </q-input>
 
               <q-input
-                v-model="filters.dateTo"
+                :model-value="filters.dateTo"
+                @update:model-value="(val) => (filters.dateTo = val)"
                 label="To"
                 outlined
                 dense
-                mask="DD-MM-YYYY HH:mm"
+                placeholder="DD-MM-YYYY HH:mm"
                 style="width: 180px"
               >
                 <template v-slot:append>
                   <q-icon name="event" class="cursor-pointer">
                     <q-popup-proxy
                       ref="dateToDatePopup"
-                      cover
+                      anchor="bottom left"
+                      self="top left"
+                      :offset="[0, 10]"
                       transition-show="scale"
                       transition-hide="scale"
                     >
-                      <q-card>
-                        <q-card-section>
-                          <q-date
-                            v-model="filters.dateTo"
-                            mask="DD-MM-YYYY HH:mm"
-                            color="primary"
-                            flat
-                            bordered
-                            @update:model-value="dateToDatePopup.hide()"
-                          />
+                      <q-card style="width: 680px">
+                        <q-card-section class="bg-primary text-white">
+                          <div class="text-h6">
+                            <q-icon name="event_note" size="sm" color="grey-8" /> Select Date & Time
+                          </div>
+                        </q-card-section>
+                        <q-card-section class="row q-gutter-md q-pa-md">
+                          <div class="col-auto">
+                            <q-date
+                              v-model="filters.dateToDate"
+                              mask="YYYY-MM-DD"
+                              color="primary"
+                              flat
+                              bordered
+                              @update:model-value="updateDateTo"
+                              class="shadow-1"
+                            />
+                          </div>
+                          <div class="col-auto">
+                            <q-time
+                              v-model="filters.dateToTime"
+                              mask="HH:mm"
+                              color="primary"
+                              format24h
+                              flat
+                              @update:model-value="updateDateTo"
+                              class="shadow-1"
+                              style="border: 1px solid #e0e0e0; border-radius: 8px"
+                            />
+                          </div>
                         </q-card-section>
                       </q-card>
                     </q-popup-proxy>
@@ -227,23 +274,24 @@ export default {
   mounted() {
     this.getAllAgents()
     this.filters.status = (STATUS.find((s) => s.value === 'ALL') || {}).value
+
+    // Set From date to today at 09:00
     const now = new Date()
     now.setHours(9, 0, 0, 0)
-    this.filters.dateFrom = now
-      .toLocaleString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      })
-      .replace(/\//g, '-')
     this.filters.dateFromDate = now.toISOString().slice(0, 10)
-    this.filters.dateFromTime = now.toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
+    this.filters.dateFromTime = '09:00'
+
+    // Set To date to one month later at 18:00
+    const oneMonthLater = new Date()
+    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1)
+    oneMonthLater.setHours(18, 0, 0, 0)
+    this.filters.dateToDate = oneMonthLater.toISOString().slice(0, 10)
+    this.filters.dateToTime = '18:00'
+
+    // Use nextTick to ensure Vue has processed the data changes
+    this.$nextTick(() => {
+      this.updateDateFrom()
+      this.updateDateTo()
     })
   },
 
@@ -291,23 +339,20 @@ export default {
       return this.filters.selectedAgents.includes(agentId)
     },
     combineDateTime(dateString, timeString) {
-      if (!dateString && !timeString) return ''
+      if (!dateString || !timeString) return ''
       try {
-        let combinedDateTime = new Date(`${dateString}${timeString}`)
+        const combinedDateTime = new Date(`${dateString}T${timeString}`)
         if (!combinedDateTime || isNaN(combinedDateTime.getTime())) {
           console.warn('Invalid date created:', dateString, timeString)
           return ''
         }
-        return combinedDateTime
-          .toLocaleString('en-GB', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-          })
-          .replace(/\//g, '-')
+        const day = String(combinedDateTime.getDate()).padStart(2, '0')
+        const month = String(combinedDateTime.getMonth() + 1).padStart(2, '0')
+        const year = combinedDateTime.getFullYear()
+        const hours = String(combinedDateTime.getHours()).padStart(2, '0')
+        const minutes = String(combinedDateTime.getMinutes()).padStart(2, '0')
+
+        return `${day}-${month}-${year} ${hours}:${minutes}`
       } catch (error) {
         console.error('Error combining date and time:', error)
         return ''
@@ -320,97 +365,24 @@ export default {
       }
       this.$emit('filter-changed', processedFilters)
     },
-    confirmTimeSelection(field) {
-      this.$refs[field + 'TimePopup']?.hide()
-      this.applyFilters()
-    },
-    confirmDateFrom() {
-      this.$refs.dateFromDatePopup.hide()
-      this.updateDateFrom()
-    },
     updateDateFrom() {
-      console.log('date', this.filters.dateFrom)
-      const combinedDate = this.combineDateTime(
-        this.filters.dateFromDate,
-        this.filters.dateFromTime,
-      )
-      if (combinedDate) {
-        this.filters.dateFrom = combinedDate
-        console.log('Date From updated to:', this.filters.dateFrom)
-      }
-    },
-    confirmDateToDate() {
-      this.$refs.dateToDatePopup.hide()
-      this.updateDateTo()
-    },
-    confirmDateToTime() {
-      this.$refs.dateToTimePopup.hide()
-      this.updateDateTo()
-    },
-    updateDateTo() {
-      const combinedDate = this.combineDateTime(this.filters.dateToDate, this.filters.dateToTime)
-      if (combinedDate) {
-        this.filters.dateTo = combinedDate
-        console.log('Date To updated to:', this.filters.dateTo)
-      }
-      this.applyFilters()
-    },
-    setQuickFilter(value) {
-      if (this.filters.quick === value) {
-        this.filters.quick = ''
-      } else {
-        this.filters.quick = value
-        const today = new Date()
-        const todayStr = today.toISOString().split('T')[0]
-        switch (value) {
-          case 'today': {
-            this.filters.dateFrom = todayStr
-            this.filters.dateTo = todayStr
-            break
-          }
-          case 'week': {
-            const weekStart = new Date(today)
-            weekStart.setDate(today.getDate() - today.getDay())
-            const weekEnd = new Date(weekStart)
-            weekEnd.setDate(weekStart.getDate() + 6)
-            this.filters.dateFrom = weekStart.toISOString().split('T')[0]
-            this.filters.dateTo = weekEnd.toISOString().split('T')[0]
-            break
-          }
-          case 'month': {
-            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-            const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-            this.filters.dateFrom = monthStart.toISOString().split('T')[0]
-            this.filters.dateTo = monthEnd.toISOString().split('T')[0]
-            break
-          }
-          case 'upcoming': {
-            this.filters.dateFrom = todayStr
-            this.filters.dateTo = ''
-            break
-          }
-          case 'past': {
-            this.filters.dateFrom = ''
-            this.filters.dateTo = todayStr
-            break
-          }
+      if (this.filters.dateFromDate && this.filters.dateFromTime) {
+        const combinedDate = this.combineDateTime(
+          this.filters.dateFromDate,
+          this.filters.dateFromTime,
+        )
+        if (combinedDate) {
+          this.filters.dateFrom = combinedDate
         }
       }
-      this.applyFilters()
     },
-    clearFilters() {
-      this.filters = {
-        dateFrom: '',
-        dateFromDate: '',
-        dateFromTime: '',
-        dateTo: '',
-        dateToDate: '',
-        dateToTime: '',
-        status: STATUS.ALL,
-        search: '',
-        quick: '',
+    updateDateTo() {
+      if (this.filters.dateToDate && this.filters.dateToTime) {
+        const combinedDate = this.combineDateTime(this.filters.dateToDate, this.filters.dateToTime)
+        if (combinedDate) {
+          this.filters.dateTo = combinedDate
+        }
       }
-      this.applyFilters()
     },
     removeFilter(key) {
       this.filters[key] = ''
