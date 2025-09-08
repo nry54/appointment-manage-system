@@ -143,12 +143,7 @@
                     size="40px"
                     class="text-white agent-avatar"
                   >
-                    {{
-                      getAgentInitials(
-                        agentName,
-                        getAgentSurname(appointment, index)
-                      )
-                    }}
+                    {{ getAgentInitials(agentName, getAgentSurname(appointment, index)) }}
                   </q-avatar>
 
                   <q-avatar
@@ -165,7 +160,7 @@
           </div>
 
           <!-- Pagination -->
-          <div v-if="totalPages > 1" class="pagination-container">
+          <div class="pagination-container">
             <div class="pagination-info">
               <span class="pagination-text">
                 Showing {{ startItem }} to {{ endItem }} of
@@ -196,7 +191,6 @@
                 active-design="unelevated"
                 active-color="primary"
                 active-text-color="white"
-                @update:model-value="onPageChange"
                 class="custom-pagination"
               />
             </div>
@@ -256,7 +250,7 @@ export default defineComponent({
     return {
       apiUrl: process.env.VUE_APP_API_BASE_URL || '',
       baseId: process.env.VUE_APP_API_BASE_ID || '',
-      appoinmentTableId: process.env.VUE_APP_API_APPOINMENT_TABLE_ID || '',
+      appoinmentTableId: process.env.VUE_APP_API_APPOINTMENT_TABLE_ID || '',
       apiKey: process.env.VUE_APP_API_KEY || '',
       paginatedAppointments: [],
       filteredAppointments: [],
@@ -394,72 +388,72 @@ export default defineComponent({
     },
     getContactName(appointment) {
       const contactName = appointment.fields.contact_name
-      
+
       // Handle different data types
       if (Array.isArray(contactName)) {
         return contactName[0] || 'Unknown Contact'
       }
-      
+
       if (typeof contactName === 'string') {
         return contactName || 'Unknown Contact'
       }
-      
+
       return 'Unknown Contact'
     },
-    
+
     getContactEmail(appointment) {
       const contactEmail = appointment.fields.contact_email
-      
+
       if (Array.isArray(contactEmail)) {
         return contactEmail[0] || '-'
       }
-      
+
       if (typeof contactEmail === 'string') {
         return contactEmail || '-'
       }
-      
+
       return '-'
     },
-    
+
     getContactPhone(appointment) {
       const contactPhone = appointment.fields.contact_phone
-      
+
       if (Array.isArray(contactPhone)) {
         return contactPhone[0] || '-'
       }
-      
+
       if (typeof contactPhone === 'string') {
         return contactPhone || '-'
       }
-      
+
       return '-'
     },
-    
+
     getAgentNames(appointment) {
       const agentName = appointment.fields.agent_name
-      
+
       if (Array.isArray(agentName)) {
-        return agentName.filter(name => name && name.trim())
+        return agentName.filter((name) => name && name.trim())
       }
-      
+
       if (typeof agentName === 'string' && agentName.trim()) {
         return [agentName.trim()]
       }
-      
+
       return []
     },
-    
+
     getAgentSurname(appointment, index) {
       const agentSurname = appointment.fields.agent_surname
-      
+
       if (Array.isArray(agentSurname)) {
         return agentSurname[index] || ''
       }
-      
+
       if (typeof agentSurname === 'string' && index === 0) {
         return agentSurname || ''
       }
-      
+
       return ''
     },
     getAgentInitials(name, surname) {
@@ -795,8 +789,8 @@ export default defineComponent({
 }
 
 .appointment-count .count-text {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 400;
   color: #2c3e50;
 }
 

@@ -341,6 +341,10 @@ export default {
       type: Boolean,
       default: false,
     },
+    appointmentData: {
+      type: Object,
+      default: null,
+    },
   },
   emits: ['update:modelValue', 'appointment-created', 'appointment-updated'],
   computed: {
@@ -390,6 +394,7 @@ export default {
       timeValue: '',
       selectedAgentTemp: null, // Temporary variable for agent selection
       formData: {
+        appointmentId: null, // For edit operations
         selectedContact: null,
         selectedCustomer: null,
         selectedAgents: [], // Changed to array for multiple agents
@@ -401,6 +406,7 @@ export default {
       baseId: process.env.VUE_APP_API_BASE_ID || '',
       contactTableId: process.env.VUE_APP_API_CONTACT_TABLE_ID || '',
       agentTableId: process.env.VUE_APP_API_AGENT_TABLE_ID || '',
+      appointmentTableId: process.env.VUE_APP_API_APPOINTMENT_TABLE_ID || '',
       apiKey: process.env.VUE_APP_API_KEY || '',
 
       // Data arrays
@@ -416,7 +422,19 @@ export default {
       if (newVal) {
         // Reset form when dialog opens
         this.resetForm()
+        // Load appointment data if editing
+        if (this.operation === 'EDIT' && this.appointmentData) {
+          this.loadAppointmentData()
+        }
       }
+    },
+    appointmentData: {
+      handler(newVal) {
+        if (newVal && this.operation === 'EDIT') {
+          this.loadAppointmentData()
+        }
+      },
+      immediate: true,
     },
   },
   async mounted() {
@@ -454,6 +472,7 @@ export default {
             type: 'warning',
             message: 'No agents found. Please check your configuration.',
             position: 'top',
+            icon: 'warning',
           })
         }
       } catch (error) {
@@ -462,6 +481,7 @@ export default {
           type: 'negative',
           message: 'Failed to load agents. Please try again.',
           position: 'top',
+          icon: 'error',
         })
       } finally {
         this.agentLoading = false
@@ -516,35 +536,236 @@ export default {
         )
       })
     },
-    createAppointment() {
+    async createAppointment() {
       if (
         !this.formData.selectedContact ||
         !this.formData.address ||
         this.formData.selectedAgents.length === 0 ||
         !this.formData.appointmentDate
       ) {
+        // Enhanced validation error notification
         this.$q.notify({
           type: 'negative',
-          message: 'Please fill in all required fields.',
+          message: 'Please fill in all required fields',
           position: 'top',
+          icon: 'error',
+          caption: 'Contact, Address, Agent, and Date are required',
+          timeout: 4000,
         })
+
         return
       }
 
+      // Show processing notification
+      const processingNotif = this.$q.notify({
+        type: 'ongoing',
+        message: `${this.operation === 'ADD' ? 'Creating' : 'Updating'} appointment...`,
+        position: 'top',
+        icon: 'schedule',
+        caption: 'Please wait while we process your request',
+        timeout: 0,
+        spinner: true,
+      })
+
       this.loading = true
 
-      // Simulate API call
-      setTimeout(() => {
+      // Make actual API call
+      try {
+        const axios = (await import('axios')).default
+
+        if (!this.apiUrl || !this.baseId || !this.appointmentTableId || !this.apiKey) {
+          const missingVars = []
+          if (!this.apiUrl) missingVars.push('VUE_APP_API_BASE_URL')
+          if (!this.baseId) missingVars.push('VUE_APP_API_BASE_ID')
+          if (!this.appointmentTableId) missingVars.push('VUE_APP_API_APPOINTMENT_TABLE_ID')
+          if (!this.apiKey) missingVars.push('VUE_APP_API_KEY')
+
+          throw new Error(
+            `Missing environment variables: ${missingVars.join(', ')}. Please check your .env file.`,
+          )
+        }
+
+        const endpoint = `${this.apiUrl}/${this.baseId}/${this.appointmentTableId}`
+
+        // Prepare appointment data
+        const appointmentData = {
+          fields: {
+            contact_id:
+              this.formData.selectedContact.id || this.formData.selectedContact.contact_id,
+            contact_name: this.formData.selectedContact.contact_name,
+            contact_email: this.formData.selectedContact.contact_email || '',
+            contact_phone: this.formData.selectedContact.contact_phone || '',
+            address: this.formData.address,
+            appointment_date: this.formData.appointmentDate,
+            agent_id: this.formData.selectedAgent?.map((agent) => agent.id),
+            agent_name: this.formData.selectedAgent?.map((agent) => agent.agent_name),
+            agent_surname: this.formData.selectedAgent?.map((agent) => agent.agent_surname),
+            created_at: new Date().toISOString(),
+          },
+        }
+
+        // Debug: Log the data being sent
+        console.log('Appointment Data to be sent:', appointmentData)
+        console.log('Selected Agents:', this.formData.selectedAgents)
+        console.log('Formatted Agents:', appointmentData.fields.agents)
+
+        const config = {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000, // 10 second timeout
+        }
+
+        let response
+        if (this.operation === 'ADD') {
+          const postData = {
+            records: [appointmentData], // "records" anahtarı içinde bir diziye alın
+          }
+
+          // Create new appointment
+          response = await axios.post(endpoint, postData, config)
+          console.log('POST Response:', response.data)
+        } else {
+          // Update existing appointment (if you have an appointment ID)
+          const appointmentId = this.formData.appointmentId
+          if (!appointmentId) {
+            throw new Error('Appointment ID is required for update operation')
+          }
+
+          console.log('Making PATCH request to:', `${endpoint}/${appointmentId}`)
+          response = await axios.patch(`${endpoint}/${appointmentId}`, appointmentData, config)
+          console.log('PATCH Response:', response.data)
+        }
+
         this.loading = false
+
+        // Dismiss processing notification
+        processingNotif()
+
+        // Show detailed success notification
         this.$q.notify({
           type: 'positive',
           message: `Appointment ${this.operation === 'ADD' ? 'created' : 'updated'} successfully!`,
           position: 'top',
+          icon: 'check_circle',
+          timeout: 5000,
+          caption: `Contact: ${this.formData.selectedContact.contact_name} | Date: ${this.formData.appointmentDate}`,
         })
+
         this.resetForm()
         this.$emit('update:modelValue', false)
-        this.$emit(this.operation === 'ADD' ? 'appointment-created' : 'appointment-updated')
-      }, 1000)
+        this.$emit(
+          this.operation === 'ADD' ? 'appointment-created' : 'appointment-updated',
+          response.data,
+        )
+      } catch (error) {
+        this.loading = false
+
+        // Dismiss processing notification
+        processingNotif()
+
+        // Enhanced error logging
+        console.error('API Error Details:', {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          headers: error.response?.headers,
+          config: {
+            url: error.config?.url,
+            method: error.config?.method,
+            headers: error.config?.headers,
+          },
+        })
+
+        // Determine error message based on error type
+        let errorMessage = 'Please try again later'
+        let errorDetails = ''
+
+        if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
+          errorMessage = 'Network connection failed'
+          errorDetails = 'Please check your internet connection and API server status'
+        } else if (error.response) {
+          // Server responded with error status
+          const status = error.response.status
+          switch (status) {
+            case 400:
+              errorMessage = 'Invalid request data'
+              errorDetails = error.response.data?.error?.message || 'Please check your input data'
+              break
+            case 401:
+              errorMessage = 'Authentication failed'
+              errorDetails = 'Please check your API key configuration'
+              break
+            case 403:
+              errorMessage = 'Access denied'
+              errorDetails = 'You do not have permission to perform this action'
+              break
+            case 404:
+              errorMessage = 'API endpoint not found'
+              errorDetails = `Check if the table ID '${this.appointmentTableId}' exists`
+              break
+            case 422:
+              errorMessage = 'Data validation failed'
+              errorDetails = error.response.data?.error?.message || 'Please check required fields'
+              break
+            case 500:
+              errorMessage = 'Server error'
+              errorDetails = 'The server encountered an error. Please try again later'
+              break
+            default:
+              errorMessage = `HTTP ${status} Error`
+              errorDetails = error.response.data?.error?.message || error.response.statusText
+          }
+        } else if (error.request) {
+          // Request was made but no response received
+          errorMessage = 'No response from server'
+          errorDetails = 'The server did not respond. Please check if the API is running'
+        } else {
+          // Something else happened
+          errorMessage = 'Request setup failed'
+          errorDetails = error.message
+        }
+
+        console.error('Error creating/updating appointment:', error)
+
+        // Show error notification with detailed information
+        this.$q.notify({
+          type: 'negative',
+          message: `Failed to ${this.operation === 'ADD' ? 'create' : 'update'} appointment: ${errorMessage}`,
+          position: 'top',
+          icon: 'error',
+          caption: errorDetails,
+          timeout: 8000,
+          actions: [
+            {
+              label: 'View Details',
+              color: 'white',
+              handler: () => {
+                console.log('Full Error Object:', error)
+                this.$q.notify({
+                  type: 'info',
+                  message: 'Error Details',
+                  caption: `Status: ${error.response?.status || 'N/A'} | Message: ${error.message}`,
+                  position: 'bottom',
+                  timeout: 5000,
+                })
+              },
+            },
+            {
+              label: 'Retry',
+              color: 'white',
+              handler: () => this.createAppointment(),
+            },
+            {
+              label: 'Dismiss',
+              color: 'white',
+              handler: () => {},
+            },
+          ],
+        })
+      }
     },
 
     getContactInitials(contact) {
@@ -615,6 +836,7 @@ export default {
 
     resetForm() {
       this.formData = {
+        appointmentId: null,
         selectedContact: null,
         selectedCustomer: null,
         selectedAgents: [],
@@ -685,6 +907,89 @@ export default {
       } catch (error) {
         console.error('Error combining date and time:', error)
         return ''
+      }
+    },
+
+    loadAppointmentData() {
+      if (this.appointmentData) {
+        this.formData.appointmentId = this.appointmentData.id
+        this.formData.address = this.appointmentData.fields?.address || ''
+        this.formData.appointmentDate = this.appointmentData.fields?.appointment_date || ''
+
+        // Load contact data
+        if (this.appointmentData.fields?.contact_id || this.appointmentData.fields?.contact_name) {
+          this.formData.selectedContact = {
+            id: this.appointmentData.fields.contact_id,
+            contact_name: this.appointmentData.fields.contact_name,
+            contact_email: this.appointmentData.fields.contact_email,
+            contact_phone: this.appointmentData.fields.contact_phone,
+          }
+        }
+
+        // Load agents data
+        if (
+          this.appointmentData.fields?.agents &&
+          Array.isArray(this.appointmentData.fields.agents)
+        ) {
+          this.formData.selectedAgents = this.appointmentData.fields.agents
+        }
+
+        // Parse date and time for date/time inputs
+        if (this.formData.appointmentDate) {
+          try {
+            const [datePart, timePart] = this.formData.appointmentDate.split(' ')
+            if (datePart && timePart) {
+              const [day, month, year] = datePart.split('-')
+              this.dateValue = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+              this.timeValue = timePart
+            }
+          } catch (error) {
+            console.warn('Error parsing appointment date:', error)
+          }
+        }
+      }
+    },
+
+    // Debug method to test API configuration
+    async testApiConnection() {
+      try {
+        const axios = (await import('axios')).default
+        const testEndpoint = `${this.apiUrl}/${this.baseId}/${this.contactTableId}?maxRecords=1`
+
+        console.log('Testing API connection to:', testEndpoint)
+
+        const response = await axios.get(testEndpoint, {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          timeout: 5000,
+        })
+
+        console.log('API Test Successful:', response.status, response.data)
+
+        this.$q.notify({
+          type: 'positive',
+          message: 'API Connection Test Successful',
+          caption: `Status: ${response.status} | Records: ${response.data.records?.length || 0}`,
+          position: 'top',
+          timeout: 3000,
+        })
+
+        return true
+      } catch (error) {
+        console.error('API Test Failed:', error)
+
+        this.$q.notify({
+          type: 'negative',
+          message: 'API Connection Test Failed',
+          caption: error.response?.status
+            ? `HTTP ${error.response.status}: ${error.response.statusText}`
+            : error.message,
+          position: 'top',
+          timeout: 5000,
+        })
+
+        return false
       }
     },
   },
