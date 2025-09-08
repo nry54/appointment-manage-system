@@ -1,187 +1,192 @@
 <template>
-  <q-row>
-    <div class="filter-container">
-      <div class="row items-center no-wrap q-col-gutter-md">
-        <div class="col-grow row q-col-gutter-sm items-center no-wrap filter-group-left">
-          <div class="col-auto">
-            <div v-if="allAgents && allAgents.length > 0" class="agent-selection-area">
-              <q-avatar
-                v-for="agent in allAgents.slice(0, 5)"
-                :key="agent.id"
-                :style="{ backgroundColor: agent.fields.color }"
-                :class="{ 'selected-agent': isSelected(agent.id) }"
-                @click="selectAgent(agent.id)"
-                size="40px"
-                class="cursor-pointer text-white agent-avatar"
-              >
-                {{ agentAvatarLetters(agent) }}
-              </q-avatar>
-
-              <q-avatar
-                v-if="allAgents.length > 5"
-                color="white"
-                size="35px"
-                class="agent-avatar cursor-pointer more-avatars-indicator"
-                @click="agentSelectDialog = true"
-              >
-                +{{ allAgents.length - 5 }}
-              </q-avatar>
-            </div>
+  <div class="filter-container">
+    <div class="row items-center no-wrap q-col-gutter-md">
+      <div class="col-grow row q-col-gutter-sm items-center no-wrap filter-group-left">
+        <div class="col-auto">
+          <!-- Agent Loading State -->
+          <div v-if="agentsLoading" class="agent-selection-area loading-state">
+            <q-skeleton v-for="n in 5" :key="n" type="QAvatar" size="40px" class="agent-skeleton" />
+            <div class="loading-text">Loading agents...</div>
           </div>
 
-          <div class="col-auto">
-            <q-select
-              v-model="filters.status"
-              :options="statusOptions"
-              outlined
-              dense
-              emit-value
-              map-options
-              @update:model-value="applyFilters"
-              style="min-width: 150px"
-            />
-          </div>
+          <!-- Agent Selection Area -->
+          <div v-else-if="allAgents && allAgents.length > 0" class="agent-selection-area">
+            <q-avatar
+              v-for="agent in allAgents.slice(0, 5)"
+              :key="agent.id"
+              :style="{ backgroundColor: agent.fields.color }"
+              :class="{ 'selected-agent': isSelected(agent.id) }"
+              @click="selectAgent(agent.id)"
+              size="40px"
+              class="cursor-pointer text-white agent-avatar"
+            >
+              {{ agentAvatarLetters(agent) }}
+            </q-avatar>
 
-          <div class="col-auto">
-            <div class="row q-gutter-md no-wrap date-filter-group">
-              <q-input
-                :model-value="filters.dateFrom"
-                @update:model-value="(val) => (filters.dateFrom = val)"
-                label="From"
-                outlined
-                dense
-                placeholder="DD-MM-YYYY HH:mm"
-                style="width: 180px"
-              >
-                <template v-slot:append>
-                  <q-icon name="event" class="cursor-pointer">
-                    <q-popup-proxy
-                      ref="dateFromDatePopup"
-                      anchor="bottom left"
-                      self="top left"
-                      :offset="[0, 10]"
-                      transition-show="scale"
-                      transition-hide="scale"
-                    >
-                      <q-card style="width: 680px">
-                        <q-card-section class="bg-primary text-white">
-                          <div class="text-h6">
-                            <q-icon name="event_note" size="sm" color="grey-8" /> Select Date & Time
-                          </div>
-                        </q-card-section>
-                        <q-card-section class="row q-gutter-md q-pa-md">
-                          <div class="col-auto">
-                            <q-date
-                              v-model="filters.dateFromDate"
-                              mask="YYYY-MM-DD"
-                              color="primary"
-                              flat
-                              bordered
-                              @update:model-value="updateDateFrom"
-                              class="shadow-1"
-                            />
-                          </div>
-                          <div class="col-auto">
-                            <q-time
-                              v-model="filters.dateFromTime"
-                              mask="HH:mm"
-                              color="primary"
-                              format24h
-                              flat
-                              @update:model-value="updateDateFrom"
-                              class="shadow-1"
-                              style="border: 1px solid #e0e0e0; border-radius: 8px"
-                            />
-                          </div>
-                        </q-card-section>
-                        <q-separator />
-                      </q-card>
-                    </q-popup-proxy>
-                  </q-icon>
-                </template>
-              </q-input>
-
-              <q-input
-                :model-value="filters.dateTo"
-                @update:model-value="(val) => (filters.dateTo = val)"
-                label="To"
-                outlined
-                dense
-                placeholder="DD-MM-YYYY HH:mm"
-                style="width: 180px"
-              >
-                <template v-slot:append>
-                  <q-icon name="event" class="cursor-pointer">
-                    <q-popup-proxy
-                      ref="dateToDatePopup"
-                      anchor="bottom left"
-                      self="top left"
-                      :offset="[0, 10]"
-                      transition-show="scale"
-                      transition-hide="scale"
-                    >
-                      <q-card style="width: 680px">
-                        <q-card-section class="bg-primary text-white">
-                          <div class="text-h6">
-                            <q-icon name="event_note" size="sm" color="grey-8" /> Select Date & Time
-                          </div>
-                        </q-card-section>
-                        <q-card-section class="row q-gutter-md q-pa-md">
-                          <div class="col-auto">
-                            <q-date
-                              v-model="filters.dateToDate"
-                              mask="YYYY-MM-DD"
-                              color="primary"
-                              flat
-                              bordered
-                              @update:model-value="updateDateTo"
-                              class="shadow-1"
-                            />
-                          </div>
-                          <div class="col-auto">
-                            <q-time
-                              v-model="filters.dateToTime"
-                              mask="HH:mm"
-                              color="primary"
-                              format24h
-                              flat
-                              @update:model-value="updateDateTo"
-                              class="shadow-1"
-                              style="border: 1px solid #e0e0e0; border-radius: 8px"
-                            />
-                          </div>
-                        </q-card-section>
-                      </q-card>
-                    </q-popup-proxy>
-                  </q-icon>
-                </template>
-              </q-input>
-            </div>
+            <q-avatar
+              v-if="allAgents.length > 5"
+              color="white"
+              size="35px"
+              class="agent-avatar cursor-pointer more-avatars-indicator"
+              @click="agentSelectDialog = true"
+            >
+              +{{ allAgents.length - 5 }}
+            </q-avatar>
           </div>
         </div>
 
-        <div class="col-auto search-input-container">
-          <q-input
-            v-model="filters.search"
-            label="Search"
+        <div class="col-auto">
+          <q-select
+            v-model="filters.status"
+            :options="statusOptions"
             outlined
             dense
-            clearable
-            debounce="300"
+            emit-value
+            map-options
             @update:model-value="applyFilters"
-            class="search-input primary-border"
-            style="min-width: 250px"
-          >
-            <template v-slot:append>
-              <div class="search-icon-container">
-                <q-icon name="search" class="cursor-pointer search-icon" />
-              </div>
-            </template>
-          </q-input>
+            style="min-width: 150px"
+          />
+        </div>
+
+        <div class="col-auto">
+          <div class="row q-gutter-md no-wrap date-filter-group">
+            <q-input
+              :model-value="filters.dateFrom"
+              @update:model-value="(val) => (filters.dateFrom = val)"
+              label="From"
+              outlined
+              dense
+              placeholder="DD-MM-YYYY HH:mm"
+              style="width: 180px"
+            >
+              <template v-slot:append>
+                <q-icon name="event" class="cursor-pointer">
+                  <q-popup-proxy
+                    ref="dateFromDatePopup"
+                    anchor="bottom left"
+                    self="top left"
+                    :offset="[0, 10]"
+                    transition-show="scale"
+                    transition-hide="scale"
+                  >
+                    <q-card style="width: 680px">
+                      <q-card-section class="bg-primary text-white">
+                        <div class="text-h6">
+                          <q-icon name="event_note" size="sm" color="grey-8" /> Select Date & Time
+                        </div>
+                      </q-card-section>
+                      <q-card-section class="row q-gutter-md q-pa-md">
+                        <div class="col-auto">
+                          <q-date
+                            v-model="filters.dateFromDate"
+                            mask="YYYY-MM-DD"
+                            color="primary"
+                            flat
+                            bordered
+                            @update:model-value="updateDateFrom"
+                            class="shadow-1"
+                          />
+                        </div>
+                        <div class="col-auto">
+                          <q-time
+                            v-model="filters.dateFromTime"
+                            mask="HH:mm"
+                            color="primary"
+                            format24h
+                            flat
+                            @update:model-value="updateDateFrom"
+                            class="shadow-1"
+                            style="border: 1px solid #e0e0e0; border-radius: 8px"
+                          />
+                        </div>
+                      </q-card-section>
+                      <q-separator />
+                    </q-card>
+                  </q-popup-proxy>
+                </q-icon>
+              </template>
+            </q-input>
+
+            <q-input
+              :model-value="filters.dateTo"
+              @update:model-value="(val) => (filters.dateTo = val)"
+              label="To"
+              outlined
+              dense
+              placeholder="DD-MM-YYYY HH:mm"
+              style="width: 180px"
+            >
+              <template v-slot:append>
+                <q-icon name="event" class="cursor-pointer">
+                  <q-popup-proxy
+                    ref="dateToDatePopup"
+                    anchor="bottom left"
+                    self="top left"
+                    :offset="[0, 10]"
+                    transition-show="scale"
+                    transition-hide="scale"
+                  >
+                    <q-card style="width: 680px">
+                      <q-card-section class="bg-primary text-white">
+                        <div class="text-h6">
+                          <q-icon name="event_note" size="sm" color="grey-8" /> Select Date & Time
+                        </div>
+                      </q-card-section>
+                      <q-card-section class="row q-gutter-md q-pa-md">
+                        <div class="col-auto">
+                          <q-date
+                            v-model="filters.dateToDate"
+                            mask="YYYY-MM-DD"
+                            color="primary"
+                            flat
+                            bordered
+                            @update:model-value="updateDateTo"
+                            class="shadow-1"
+                          />
+                        </div>
+                        <div class="col-auto">
+                          <q-time
+                            v-model="filters.dateToTime"
+                            mask="HH:mm"
+                            color="primary"
+                            format24h
+                            flat
+                            @update:model-value="updateDateTo"
+                            class="shadow-1"
+                            style="border: 1px solid #e0e0e0; border-radius: 8px"
+                          />
+                        </div>
+                      </q-card-section>
+                    </q-card>
+                  </q-popup-proxy>
+                </q-icon>
+              </template>
+            </q-input>
+          </div>
         </div>
       </div>
+
+      <div class="col-auto search-input-container">
+        <q-input
+          v-model="filters.search"
+          label="Search"
+          outlined
+          dense
+          clearable
+          debounce="300"
+          @update:model-value="applyFilters"
+          class="search-input primary-border"
+          style="min-width: 250px"
+        >
+          <template v-slot:append>
+            <div class="search-icon-container">
+              <q-icon name="search" class="cursor-pointer search-icon" />
+            </div>
+          </template>
+        </q-input>
+      </div>
     </div>
-  </q-row>
+  </div>
 </template>
 
 <script>
@@ -214,6 +219,7 @@ export default {
       agentTableId: process.env.VUE_APP_API_AGENT_TABLE_ID || '',
       apiKey: process.env.VUE_APP_API_KEY || '',
       agentSelectDialog: false,
+      agentsLoading: false, // Loading state for agents
     }
   },
 
@@ -289,6 +295,7 @@ export default {
   methods: {
     async getAllAgents() {
       try {
+        this.agentsLoading = true
         const axios = (await import('axios')).default
         if (!this.apiUrl || !this.baseId || !this.agentTableId || !this.apiKey) {
           console.error('Please control .env file')
@@ -303,8 +310,11 @@ export default {
         const response = await axios.get(endpoint, config)
         const { records } = response.data
         this.allAgents = records
+        console.log('Filter agents loaded:', records.length)
       } catch (error) {
         console.error('Error while getting agent list:', error)
+      } finally {
+        this.agentsLoading = false
       }
     },
     agentAvatarLetters(agent) {
@@ -599,6 +609,36 @@ export default {
         color: var(--q-color-primary);
       }
     }
+  }
+}
+
+/* Agent Loading State Styles */
+.agent-selection-area.loading-state {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-skeleton {
+  border-radius: 50%;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.loading-text {
+  font-size: 11px;
+  color: #999;
+  font-style: italic;
+  margin-left: 8px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
   }
 }
 </style>

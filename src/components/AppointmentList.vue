@@ -20,8 +20,41 @@
             </div>
           </div>
 
+          <!-- Loading State for Appointments -->
+          <div v-if="appointmentsLoading" class="appointments-loading-container">
+            <div class="loading-header">
+              <q-skeleton type="text" width="200px" height="24px" class="q-mb-md" />
+              <q-skeleton type="text" width="150px" height="16px" />
+            </div>
+            <div class="loading-cards">
+              <div v-for="n in 6" :key="n" class="appointment-card-skeleton">
+                <div class="skeleton-section">
+                  <q-skeleton type="circle" size="40px" />
+                  <div class="skeleton-text">
+                    <q-skeleton type="text" width="120px" height="16px" />
+                    <q-skeleton type="text" width="100px" height="14px" />
+                  </div>
+                </div>
+                <div class="skeleton-section">
+                  <q-skeleton type="rect" width="80px" height="40px" />
+                  <q-skeleton type="text" width="60px" height="12px" />
+                </div>
+                <div class="skeleton-section">
+                  <q-skeleton type="text" width="140px" height="16px" />
+                  <q-skeleton type="text" width="100px" height="14px" />
+                </div>
+                <div class="skeleton-section">
+                  <div class="skeleton-avatars">
+                    <q-skeleton type="circle" size="32px" />
+                    <q-skeleton type="circle" size="32px" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Loading State -->
-          <div v-if="loading" class="loading-container">
+          <div v-else-if="loading" class="loading-container">
             <q-spinner size="40px" color="primary" />
             <div class="loading-text">Loading appoinments...</div>
           </div>
@@ -41,12 +74,12 @@
                   <q-icon name="phone" class="contact-icon" />
                 </div>
                 <div class="contact-details">
-                  <div class="contact-name">{{ appointment.fields.contact_name[0] }}</div>
+                  <div class="contact-name">{{ getContactName(appointment) }}</div>
                   <div class="contact-email">
-                    {{ appointment.fields.contact_email[0] || '-' }}
+                    {{ getContactEmail(appointment) }}
                   </div>
                   <div class="contact-phone">
-                    {{ appointment.fields.contact_phone[0] || '-' }}
+                    {{ getContactPhone(appointment) }}
                   </div>
                 </div>
               </div>
@@ -100,11 +133,11 @@
               <!-- Staff Section -->
               <div class="staff-section">
                 <div
-                  v-if="appointment.fields.agent_name && appointment.fields.agent_name.length > 0"
+                  v-if="getAgentNames(appointment) && getAgentNames(appointment).length > 0"
                   class="agent-avatars"
                 >
                   <q-avatar
-                    v-for="(agentName, index) in appointment.fields.agent_name.slice(0, 3)"
+                    v-for="(agentName, index) in getAgentNames(appointment).slice(0, 3)"
                     :key="index"
                     :style="{ backgroundColor: getAgentColor(appointment, index) }"
                     size="40px"
@@ -113,20 +146,18 @@
                     {{
                       getAgentInitials(
                         agentName,
-                        appointment.fields.agent_surname
-                          ? appointment.fields.agent_surname[index]
-                          : '',
+                        getAgentSurname(appointment, index)
                       )
                     }}
                   </q-avatar>
 
                   <q-avatar
-                    v-if="appointment.fields.agent_name.length > 3"
+                    v-if="getAgentNames(appointment).length > 3"
                     color="grey-6"
                     size="40px"
                     class="text-white agent-avatar additional-staff"
                   >
-                    +{{ appointment.fields.agent_name.length - 3 }}
+                    +{{ getAgentNames(appointment).length - 3 }}
                   </q-avatar>
                 </div>
               </div>
@@ -234,6 +265,7 @@ export default defineComponent({
       rowsPerPage: DEFAULT_PAGINATION.rowsPerPage,
       sortBy: DEFAULT_PAGINATION.sortBy,
       descending: DEFAULT_PAGINATION.descending,
+      appointmentsLoading: false, // Separate loading state for appointments data
 
       appoinment: {
         show: false,
@@ -303,6 +335,7 @@ export default defineComponent({
     async init() {
       // Randevuların listelendiği endpointi axios ile çağır
       try {
+        this.appointmentsLoading = true
         const axios = (await import('axios')).default
 
         if (!this.apiUrl || !this.baseId || !this.appoinmentTableId || !this.apiKey) {
@@ -334,9 +367,12 @@ export default defineComponent({
 
         // Fetch agent details using centralized service
         await this.fetchAgentDetailsForAppointments(records)
+        console.log('Appointments loaded:', records.length)
       } catch (error) {
         // Hata durumunda konsola yazdır
         console.error('Randevular alınırken hata oluştu:', error)
+      } finally {
+        this.appointmentsLoading = false
       }
     },
     async fetchAgentDetailsForAppointments(appointments) {
@@ -356,8 +392,75 @@ export default defineComponent({
         await this.agentService.getAgentsByIds([...uniqueAgentIds])
       }
     },
-    onPageChange(page) {
-      this.currentPage = page
+    getContactName(appointment) {
+      const contactName = appointment.fields.contact_name
+      
+      // Handle different data types
+      if (Array.isArray(contactName)) {
+        return contactName[0] || 'Unknown Contact'
+      }
+      
+      if (typeof contactName === 'string') {
+        return contactName || 'Unknown Contact'
+      }
+      
+      return 'Unknown Contact'
+    },
+    
+    getContactEmail(appointment) {
+      const contactEmail = appointment.fields.contact_email
+      
+      if (Array.isArray(contactEmail)) {
+        return contactEmail[0] || '-'
+      }
+      
+      if (typeof contactEmail === 'string') {
+        return contactEmail || '-'
+      }
+      
+      return '-'
+    },
+    
+    getContactPhone(appointment) {
+      const contactPhone = appointment.fields.contact_phone
+      
+      if (Array.isArray(contactPhone)) {
+        return contactPhone[0] || '-'
+      }
+      
+      if (typeof contactPhone === 'string') {
+        return contactPhone || '-'
+      }
+      
+      return '-'
+    },
+    
+    getAgentNames(appointment) {
+      const agentName = appointment.fields.agent_name
+      
+      if (Array.isArray(agentName)) {
+        return agentName.filter(name => name && name.trim())
+      }
+      
+      if (typeof agentName === 'string' && agentName.trim()) {
+        return [agentName.trim()]
+      }
+      
+      return []
+    },
+    
+    getAgentSurname(appointment, index) {
+      const agentSurname = appointment.fields.agent_surname
+      
+      if (Array.isArray(agentSurname)) {
+        return agentSurname[index] || ''
+      }
+      
+      if (typeof agentSurname === 'string' && index === 0) {
+        return agentSurname || ''
+      }
+      
+      return ''
     },
     getAgentInitials(name, surname) {
       // Handle array elements - get initials from agent name and surname
@@ -585,21 +688,20 @@ export default defineComponent({
 
           if (key === 'search') {
             if (filterValue) {
-              const { appointment_address, contact_name, contact_email, contact_phone } =
-                record.fields
+              const { appointment_address } = record.fields
 
-              // Create a combined search string from all relevant fields
+              // Create a combined search string from all relevant fields using helper methods
               const searchFields = [
                 appointment_address || '',
-                (contact_name && contact_name[0]) || '',
-                (contact_email && contact_email[0]) || '',
-                (contact_phone && contact_phone[0]) || '',
+                this.getContactName(record),
+                this.getContactEmail(record),
+                this.getContactPhone(record),
               ]
                 .join(' ')
                 .toLowerCase()
 
               // Check if the search term is found in any of the fields
-              if (!searchFields.includes(filterValue)) {
+              if (!searchFields.includes(filterValue.toLowerCase())) {
                 return false
               }
             }
@@ -1352,5 +1454,74 @@ export default defineComponent({
 .q-card {
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* Appointments Loading Skeleton Styles */
+.appointments-loading-container {
+  padding: 20px;
+}
+
+.loading-header {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.loading-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.appointment-card-skeleton {
+  display: grid;
+  grid-template-columns: 2fr 1fr 2fr 1fr;
+  gap: 20px;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #f0f0f0;
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.skeleton-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.skeleton-avatars {
+  display: flex;
+  gap: 8px;
+}
+
+@keyframes skeletonPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@media (max-width: 1024px) {
+  .appointment-card-skeleton {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .skeleton-section {
+    align-items: center;
+    text-align: center;
+  }
 }
 </style>
