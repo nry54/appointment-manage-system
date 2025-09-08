@@ -342,10 +342,10 @@ export default defineComponent({
     async fetchAgentDetailsForAppointments(appointments) {
       // Extract unique agent IDs from all appointments
       const uniqueAgentIds = new Set()
-      
-      appointments.forEach(appointment => {
+
+      appointments.forEach((appointment) => {
         if (appointment.fields.agent_id && Array.isArray(appointment.fields.agent_id)) {
-          appointment.fields.agent_id.forEach(agentId => {
+          appointment.fields.agent_id.forEach((agentId) => {
             if (agentId) uniqueAgentIds.add(agentId)
           })
         }
@@ -379,12 +379,12 @@ export default defineComponent({
           return agentDetails.color
         }
       }
-      
+
       // Fallback to agent_color field if available
       if (appointment.fields.agent_color && appointment.fields.agent_color[index]) {
         return appointment.fields.agent_color[index]
       }
-      
+
       // Use centralized service for default colors with comprehensive palette
       return this.agentService.getAgentColor(null, index)
     },
@@ -490,6 +490,33 @@ export default defineComponent({
         hour12: false,
       })
     },
+    isAppointmentCompleted(appointment) {
+      // Determine if appointment is completed based on date/time
+      // Important: Cancelled appointments should never be considered completed
+      if (appointment.fields.is_cancelled) {
+        return false
+      }
+
+      if (!appointment.fields.appointment_date) {
+        return false
+      }
+
+      const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date)
+      return timeRemaining === 'PAST'
+    },
+    isAppointmentUpcoming(appointment) {
+      // Determine if appointment is upcoming (not cancelled and not in the past)
+      if (appointment.fields.is_cancelled) {
+        return false
+      }
+
+      if (!appointment.fields.appointment_date) {
+        return true // Default to upcoming if no date
+      }
+
+      const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date)
+      return timeRemaining !== 'PAST'
+    },
     filterRecords(records, filters) {
       // filters objesindeki filtrelere göre records listesini filtrele
       if (!filters || Object.keys(filters).length === 0) {
@@ -507,15 +534,17 @@ export default defineComponent({
           if (key === 'status') {
             // status değeri "upcoming", "completed", "cancelled" gibi olabilir
             if (filterValue === 'UPCOMING') {
-              // Ne tamamlanmış ne de iptal edilmiş
-              if (record.fields.is_completed || record.fields.is_cancelled) {
+              // Upcoming: not cancelled and not completed (not in the past)
+              if (!this.isAppointmentUpcoming(record)) {
                 return false
               }
             } else if (filterValue === 'COMPLETED') {
-              if (!record.fields.is_completed) {
+              // Completed: appointment date is in the past
+              if (!this.isAppointmentCompleted(record)) {
                 return false
               }
             } else if (filterValue === 'CANCELLED') {
+              // Cancelled: has is_cancelled flag
               if (!record.fields.is_cancelled) {
                 return false
               }

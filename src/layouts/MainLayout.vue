@@ -46,15 +46,7 @@ export default defineComponent({
     },
   },
 
-  mounted() {
-    this.init()
-  },
-
   methods: {
-    async init() {
-      console.log('Uygulama başlatılıyor...')
-    },
-
     handleAppointmentSaved(appointment) {
       const newAppointment = {
         ...appointment,
