@@ -173,8 +173,10 @@
         </div>
         <!-- Randevu Ekleme/Düzenleme Dialog -->
         <AppoinmentDialog
-          v-if="appoinment.show"
+          v-model="appoinment.show"
           :operation="appoinment.operation"
+          @appointment-created="onAppointmentCreated"
+          @appointment-updated="onAppointmentUpdated"
         ></AppoinmentDialog>
       </q-page>
     </q-page-container>
@@ -659,6 +661,16 @@ export default defineComponent({
     openAppointmentDialog() {
       this.appoinment.show = true
       this.appoinment.operation = 'ADD'
+    },
+    onAppointmentCreated() {
+      // Handle appointment creation
+      this.appoinment.show = false
+      this.init() // Refresh the appointment list
+    },
+    onAppointmentUpdated() {
+      // Handle appointment update
+      this.appoinment.show = false
+      this.init() // Refresh the appointment list
     },
   },
 })

@@ -27,7 +27,7 @@
               dense
               icon="close"
               class="close-btn"
-              @click="showForm = false"
+              @click="$emit('update:modelValue', false)"
               size="md"
             />
           </div>
@@ -308,10 +308,16 @@
 
         <q-card-actions class="q-px-lg q-pb-lg q-pt-md">
           <q-space />
-          <q-btn flat label="Cancel" color="grey-7" @click="showForm = false" class="q-mr-sm" />
+          <q-btn
+            flat
+            label="Cancel"
+            color="grey-7"
+            @click="$emit('update:modelValue', false)"
+            class="q-mr-sm"
+          />
           <q-btn
             unelevated
-            :label="operation === 'ADD' ? 'Create Appointment' : 'Update Appointment'"
+            :label="operation === 'ADD' ? 'Create' : 'Update'"
             color="primary"
             @click="createAppointment"
             :loading="loading"
@@ -331,8 +337,21 @@ export default {
       type: String,
       default: 'ADD',
     },
+    modelValue: {
+      type: Boolean,
+      default: false,
+    },
   },
+  emits: ['update:modelValue', 'appointment-created', 'appointment-updated'],
   computed: {
+    showForm: {
+      get() {
+        return this.modelValue
+      },
+      set(value) {
+        this.$emit('update:modelValue', value)
+      },
+    },
     agentOptions() {
       if (!this.agents || this.agents.length === 0) {
         return []
@@ -366,7 +385,6 @@ export default {
   },
   data() {
     return {
-      showForm: true,
       loading: false,
       dateValue: '',
       timeValue: '',
@@ -392,6 +410,14 @@ export default {
       agents: [],
       agentLoading: false,
     }
+  },
+  watch: {
+    modelValue(newVal) {
+      if (newVal) {
+        // Reset form when dialog opens
+        this.resetForm()
+      }
+    },
   },
   async mounted() {
     this.fetchAllContacts()
@@ -515,8 +541,9 @@ export default {
           message: `Appointment ${this.operation === 'ADD' ? 'created' : 'updated'} successfully!`,
           position: 'top',
         })
-        this.showForm = false
-        // this.$emit('created')
+        this.resetForm()
+        this.$emit('update:modelValue', false)
+        this.$emit(this.operation === 'ADD' ? 'appointment-created' : 'appointment-updated')
       }, 1000)
     },
 
@@ -584,6 +611,20 @@ export default {
         const agentId = agent.agent_id || agent.id || JSON.stringify(agent)
         return selectedId === agentId
       })
+    },
+
+    resetForm() {
+      this.formData = {
+        selectedContact: null,
+        selectedCustomer: null,
+        selectedAgents: [],
+        address: '',
+        appointmentDate: '',
+      }
+      this.selectedAgentTemp = null
+      this.dateValue = ''
+      this.timeValue = ''
+      this.filteredContacts = []
     },
 
     getAgentColor(agent, fallbackIndex = 0) {
