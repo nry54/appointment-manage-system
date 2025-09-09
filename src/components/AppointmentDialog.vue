@@ -1,334 +1,328 @@
 <template>
-  <q-page class="flex flex-center q-pa-md">
-    <q-dialog v-model="showForm" persistent>
-      <q-card class="appointment-form-card">
-        <q-card-section class="dialog-header q-py-lg q-px-lg">
-          <div class="header-content">
-            <div class="header-left">
-              <div class="header-icon-wrapper">
-                <q-icon name="event_note" size="28px" class="header-icon" />
+  <q-dialog v-model="showForm" persistent>
+    <q-card class="appointment-form-card">
+      <q-card-section class="dialog-header q-py-lg q-px-lg">
+        <div class="header-content">
+          <div class="header-left">
+            <div class="header-icon-wrapper">
+              <q-icon name="event_note" size="28px" class="header-icon" />
+            </div>
+            <div class="header-text">
+              <div class="text-h5 header-title">
+                {{ operation === 'ADD' ? 'Create Appointment' : 'Edit Appointment' }}
               </div>
-              <div class="header-text">
-                <div class="text-h5 header-title">
-                  {{ operation === 'ADD' ? 'Create Appointment' : 'Edit Appointment' }}
-                </div>
-                <div class="header-subtitle">
-                  {{
-                    operation === 'ADD'
-                      ? 'Schedule a new appointment'
-                      : 'Update appointment details'
-                  }}
-                </div>
+              <div class="header-subtitle">
+                {{
+                  operation === 'ADD' ? 'Schedule a new appointment' : 'Update appointment details'
+                }}
               </div>
             </div>
-            <q-btn
-              flat
-              round
-              dense
-              icon="close"
-              class="close-btn"
-              @click="$emit('update:modelValue', false)"
-              size="md"
-            />
           </div>
-        </q-card-section>
-
-        <q-card-section class="q-py-md q-px-lg q-gutter-y-lg">
-          <q-form @submit="createAppointment" class="q-gutter-md">
-            <div v-if="formData.selectedContact" class="selected-contact-wrapper">
-              <div class="contact-label">
-                <q-icon name="person" class="label-icon" color="primary" />
-                <span class="label-text">Selected Contact</span>
-              </div>
-              <q-card flat class="selected-contact-card">
-                <q-card-section class="contact-card-section">
-                  <div class="contact-info-section">
-                    <div class="contact-details">
-                      <div class="contact-detail-item">
-                        <q-icon name="person" class="detail-icon" />
-                        {{ formData.selectedContact.contact_name }}
-                        {{ formData.selectedContact.contact_surname }}
-                      </div>
-                    </div>
-                    <div class="contact-details">
-                      <div class="contact-detail-item">
-                        <q-icon name="email" size="14px" class="detail-icon" />
-                        <span class="detail-text">{{
-                          formData.selectedContact.contact_email || 'No email provided'
-                        }}</span>
-                      </div>
-                      <div class="contact-detail-item">
-                        <q-icon name="phone" size="14px" class="detail-icon" />
-                        <span class="detail-text">{{
-                          formData.selectedContact.contact_phone || 'No phone provided'
-                        }}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="contact-actions">
-                    <q-btn
-                      flat
-                      round
-                      dense
-                      icon="close"
-                      color="grey-6"
-                      class="remove-contact-btn"
-                      @click="formData.selectedContact = null"
-                      size="sm"
-                    >
-                      <q-tooltip>Remove contact</q-tooltip>
-                    </q-btn>
-                  </div>
-                </q-card-section>
-              </q-card>
-            </div>
-            <q-select
-              v-else
-              filled
-              v-model="formData.selectedContact"
-              :options="filteredContacts"
-              use-input
-              dense
-              hide-selected
-              hide-dropdown-icon=""
-              fill-input
-              input-debounce="0"
-              label="Search"
-              @filter="filterRecords"
-              option-value="id"
-              option-label="contact_name"
-              emit-value
-              map-options
-            >
-              <template v-slot:no-option>
-                <q-item>
-                  <q-item-section class="text-grey"> No results </q-item-section>
-                </q-item>
-              </template>
-              <template v-slot:append>
-                <div class="search-icon-container">
-                  <q-icon name="search" class="cursor-pointer search-icon" />
-                </div>
-              </template>
-
-              <template v-slot:option="scope">
-                <q-item v-bind="scope.itemProps">
-                  <q-item-section>
-                    <div class="contact-section">
-                      <div class="contact-icons">
-                        <q-icon name="person" class="contact-icon" />
-                        <q-icon name="email" class="contact-icon" />
-                        <q-icon name="phone" class="contact-icon" />
-                      </div>
-                      <div class="contact-details">
-                        <div class="contact-name">
-                          {{ scope.opt.contact_name }} {{ scope.opt.contact_surname }}
-                        </div>
-                        <div class="contact-email">
-                          {{ scope.opt.contact_email || '-' }}
-                        </div>
-                        <div class="contact-phone">
-                          {{ scope.opt.contact_phone || '-' }}
-                        </div>
-                      </div>
-                    </div>
-                  </q-item-section>
-                </q-item>
-                <q-separator v-if="scope.index < filteredContacts.length - 1" inset />
-              </template>
-            </q-select>
-
-            <q-input
-              outlined
-              dense
-              v-model="formData.address"
-              label="Address"
-              placeholder="Enter the address for this appointment"
-              clearable
-              color="primary"
-            >
-              <template v-slot:prepend>
-                <q-icon name="location_on" color="primary" />
-              </template>
-            </q-input>
-
-            <!-- Enhanced Selected Agent Display - Outside Select -->
-            <q-select
-              outlined
-              dense
-              v-model="selectedAgentTemp"
-              :options="availableAgentOptions"
-              label="Agent"
-              placeholder="Choose an agent for this appointment"
-              emit-value
-              map-options
-              color="primary"
-              clearable
-              @update:model-value="addAgent"
-            >
-              <template v-slot:prepend>
-                <q-icon name="support_agent" color="primary" />
-              </template>
-
-              <!-- Agent Options in Dropdown -->
-              <template v-slot:option="scope">
-                <q-item v-bind="scope.itemProps" class="agent-option-item">
-                  <q-item-section avatar>
-                    <q-avatar
-                      :style="{ backgroundColor: getAgentColor(scope.opt) }"
-                      text-color="white"
-                      size="40px"
-                      class="agent-avatar"
-                    >
-                      {{ getAgentInitials(scope.opt) }}
-                    </q-avatar>
-                  </q-item-section>
-                  <q-item-section>
-                    <q-item-label class="agent-option-name">{{ scope.opt.label }}</q-item-label>
-                    <q-item-label caption class="agent-option-role">Real Estate Agent</q-item-label>
-                  </q-item-section>
-                  <q-item-section side>
-                    <q-icon name="person" color="grey-5" size="18px" />
-                  </q-item-section>
-                </q-item>
-              </template>
-
-              <!-- No Options State -->
-              <template v-slot:no-option>
-                <q-item>
-                  <q-item-section class="text-center text-grey-5">
-                    <div class="no-agents-state">
-                      <q-icon name="group_off" size="32px" class="q-mb-sm" />
-                      <div>No agents available</div>
-                      <div class="text-caption">Please check your connection</div>
-                    </div>
-                  </q-item-section>
-                </q-item>
-              </template>
-            </q-select>
-            <!-- Enhanced Selected Agents Display - Multiple Selection -->
-            <div v-if="formData.selectedAgents.length > 0" class="selected-agents-wrapper">
-              <div class="agent-label">
-                <q-icon name="support_agent" class="label-icon" color="primary" />
-                <span class="label-text"
-                  >Selected Agents ({{ formData.selectedAgents.length }})</span
-                >
-              </div>
-              <div class="selected-agents-container">
-                <div
-                  v-for="(agent, index) in formData.selectedAgents"
-                  :key="agent.id || index"
-                  class="selected-agent-display-enhanced"
-                >
-                  <div class="agent-avatar-container">
-                    <q-avatar
-                      :style="{ backgroundColor: getAgentColor(agent, index) }"
-                      text-color="white"
-                      size="40px"
-                      class="agent-avatar"
-                    >
-                      {{ getAgentInitials(agent) }}
-                    </q-avatar>
-                    <div class="agent-status-indicator"></div>
-                  </div>
-                  <div class="agent-info-container">
-                    <span class="agent-name-selected">{{ getAgentLabel(agent) }}</span>
-                    <span class="agent-role-selected">Real Estate Agent</span>
-                  </div>
-                  <div class="agent-remove-btn">
-                    <q-btn
-                      flat
-                      round
-                      dense
-                      icon="close"
-                      color="grey-6"
-                      class="remove-agent-btn"
-                      @click="removeAgent(index)"
-                      size="sm"
-                    >
-                      <q-tooltip>Remove agent</q-tooltip>
-                    </q-btn>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <q-input
-              dense
-              v-model="formData.appointmentDate"
-              label="Appointment Date"
-              readonly
-              outlined
-            >
-              <template v-slot:append>
-                <q-icon name="event" class="cursor-pointer" color="primary">
-                  <q-popup-proxy
-                    anchor="bottom left"
-                    self="top left"
-                    :offset="[0, 10]"
-                    transition-show="scale"
-                    transition-hide="scale"
-                  >
-                    <q-card style="width: 680px">
-                      <q-card-section class="bg-primary text-white">
-                        <div class="text-h6">
-                          <q-icon name="event_note" size="sm" /> Select Date & Time
-                        </div>
-                      </q-card-section>
-                      <q-card-section class="row q-gutter-md q-pa-md">
-                        <div class="col-auto">
-                          <q-date
-                            v-model="dateValue"
-                            mask="YYYY-MM-DD"
-                            color="primary"
-                            flat
-                            bordered
-                            @update:model-value="updateDateTime"
-                            class="shadow-1"
-                          />
-                        </div>
-                        <div class="col-auto">
-                          <q-time
-                            v-model="timeValue"
-                            mask="HH:mm"
-                            color="primary"
-                            format24h
-                            flat
-                            @update:model-value="updateDateTime"
-                            class="shadow-1"
-                            style="border: 1px solid #e0e0e0; border-radius: 8px"
-                          />
-                        </div>
-                      </q-card-section>
-                      <q-separator />
-                    </q-card>
-                  </q-popup-proxy>
-                </q-icon>
-              </template>
-            </q-input>
-          </q-form>
-        </q-card-section>
-
-        <q-card-actions class="q-px-lg q-pb-lg q-pt-md">
-          <q-space />
           <q-btn
             flat
-            label="Cancel"
-            color="grey-7"
+            round
+            dense
+            icon="close"
+            class="close-btn"
             @click="$emit('update:modelValue', false)"
-            class="q-mr-sm"
+            size="md"
           />
-          <q-btn
-            unelevated
-            :label="operation === 'ADD' ? 'Create' : 'Update'"
+        </div>
+      </q-card-section>
+
+      <q-card-section class="q-py-md q-px-lg q-gutter-y-lg">
+        <q-form @submit="createAppointment" class="q-gutter-md">
+          <div v-if="formData.selectedContact" class="selected-contact-wrapper">
+            <div class="contact-label">
+              <q-icon name="person" class="label-icon" color="primary" />
+              <span class="label-text">Selected Contact</span>
+            </div>
+            <q-card flat class="selected-contact-card">
+              <q-card-section class="contact-card-section">
+                <div class="contact-info-section">
+                  <div class="contact-details">
+                    <div class="contact-detail-item">
+                      <q-icon name="person" class="detail-icon" />
+                      {{ formData.selectedContact.contact_name }}
+                      {{ formData.selectedContact.contact_surname }}
+                    </div>
+                  </div>
+                  <div class="contact-details">
+                    <div class="contact-detail-item">
+                      <q-icon name="email" size="14px" class="detail-icon" />
+                      <span class="detail-text">{{
+                        formData.selectedContact.contact_email || 'No email provided'
+                      }}</span>
+                    </div>
+                    <div class="contact-detail-item">
+                      <q-icon name="phone" size="14px" class="detail-icon" />
+                      <span class="detail-text">{{
+                        formData.selectedContact.contact_phone || 'No phone provided'
+                      }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="contact-actions">
+                  <q-btn
+                    flat
+                    round
+                    dense
+                    icon="close"
+                    color="grey-6"
+                    class="remove-contact-btn"
+                    @click="formData.selectedContact = null"
+                    size="sm"
+                  >
+                    <q-tooltip>Remove contact</q-tooltip>
+                  </q-btn>
+                </div>
+              </q-card-section>
+            </q-card>
+          </div>
+          <q-select
+            v-else
+            filled
+            v-model="formData.selectedContact"
+            :options="filteredContacts"
+            use-input
+            dense
+            hide-selected
+            hide-dropdown-icon=""
+            fill-input
+            input-debounce="0"
+            label="Search"
+            @filter="filterRecords"
+            option-value="id"
+            option-label="contact_name"
+            emit-value
+            map-options
+          >
+            <template v-slot:no-option>
+              <q-item>
+                <q-item-section class="text-grey"> No results </q-item-section>
+              </q-item>
+            </template>
+            <template v-slot:append>
+              <div class="search-icon-container">
+                <q-icon name="search" class="cursor-pointer search-icon" />
+              </div>
+            </template>
+
+            <template v-slot:option="scope">
+              <q-item v-bind="scope.itemProps">
+                <q-item-section>
+                  <div class="contact-section">
+                    <div class="contact-icons">
+                      <q-icon name="person" class="contact-icon" />
+                      <q-icon name="email" class="contact-icon" />
+                      <q-icon name="phone" class="contact-icon" />
+                    </div>
+                    <div class="contact-details">
+                      <div class="contact-name">
+                        {{ scope.opt.contact_name }} {{ scope.opt.contact_surname }}
+                      </div>
+                      <div class="contact-email">
+                        {{ scope.opt.contact_email || '-' }}
+                      </div>
+                      <div class="contact-phone">
+                        {{ scope.opt.contact_phone || '-' }}
+                      </div>
+                    </div>
+                  </div>
+                </q-item-section>
+              </q-item>
+              <q-separator v-if="scope.index < filteredContacts.length - 1" inset />
+            </template>
+          </q-select>
+
+          <q-input
+            outlined
+            dense
+            v-model="formData.address"
+            label="Address"
+            placeholder="Enter the address for this appointment"
+            clearable
             color="primary"
-            @click="createAppointment"
-            :loading="loading"
-          />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-  </q-page>
+          >
+            <template v-slot:prepend>
+              <q-icon name="location_on" color="primary" />
+            </template>
+          </q-input>
+
+          <!-- Enhanced Selected Agent Display - Outside Select -->
+          <q-select
+            outlined
+            dense
+            v-model="selectedAgentTemp"
+            :options="availableAgentOptions"
+            label="Agent"
+            placeholder="Choose an agent for this appointment"
+            emit-value
+            map-options
+            color="primary"
+            clearable
+            @update:model-value="addAgent"
+          >
+            <template v-slot:prepend>
+              <q-icon name="support_agent" color="primary" />
+            </template>
+
+            <!-- Agent Options in Dropdown -->
+            <template v-slot:option="scope">
+              <q-item v-bind="scope.itemProps" class="agent-option-item">
+                <q-item-section avatar>
+                  <q-avatar
+                    :style="{ backgroundColor: getAgentColor(scope.opt) }"
+                    text-color="white"
+                    size="40px"
+                    class="agent-avatar"
+                  >
+                    {{ getAgentInitials(scope.opt) }}
+                  </q-avatar>
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label class="agent-option-name">{{ scope.opt.label }}</q-item-label>
+                  <q-item-label caption class="agent-option-role">Real Estate Agent</q-item-label>
+                </q-item-section>
+                <q-item-section side>
+                  <q-icon name="person" color="grey-5" size="18px" />
+                </q-item-section>
+              </q-item>
+            </template>
+
+            <!-- No Options State -->
+            <template v-slot:no-option>
+              <q-item>
+                <q-item-section class="text-center text-grey-5">
+                  <div class="no-agents-state">
+                    <q-icon name="group_off" size="32px" class="q-mb-sm" />
+                    <div>No agents available</div>
+                    <div class="text-caption">Please check your connection</div>
+                  </div>
+                </q-item-section>
+              </q-item>
+            </template>
+          </q-select>
+          <!-- Enhanced Selected Agents Display - Multiple Selection -->
+          <div v-if="formData.selectedAgents.length > 0" class="selected-agents-wrapper">
+            <div class="agent-label">
+              <q-icon name="support_agent" class="label-icon" color="primary" />
+              <span class="label-text">Selected Agents ({{ formData.selectedAgents.length }})</span>
+            </div>
+            <div class="selected-agents-container">
+              <div
+                v-for="(agent, index) in formData.selectedAgents"
+                :key="agent.id || index"
+                class="selected-agent-display-enhanced"
+              >
+                <div class="agent-avatar-container">
+                  <q-avatar
+                    :style="{ backgroundColor: getAgentColor(agent, index) }"
+                    text-color="white"
+                    size="40px"
+                    class="agent-avatar"
+                  >
+                    {{ getAgentInitials(agent) }}
+                  </q-avatar>
+                  <div class="agent-status-indicator"></div>
+                </div>
+                <div class="agent-info-container">
+                  <span class="agent-name-selected">{{ getAgentLabel(agent) }}</span>
+                  <span class="agent-role-selected">Real Estate Agent</span>
+                </div>
+                <div class="agent-remove-btn">
+                  <q-btn
+                    flat
+                    round
+                    dense
+                    icon="close"
+                    color="grey-6"
+                    class="remove-agent-btn"
+                    @click="removeAgent(index)"
+                    size="sm"
+                  >
+                    <q-tooltip>Remove agent</q-tooltip>
+                  </q-btn>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <q-input
+            dense
+            v-model="formData.appointmentDate"
+            label="Appointment Date"
+            readonly
+            outlined
+          >
+            <template v-slot:append>
+              <q-icon name="event" class="cursor-pointer" color="primary">
+                <q-popup-proxy
+                  anchor="bottom left"
+                  self="top left"
+                  :offset="[0, 10]"
+                  transition-show="scale"
+                  transition-hide="scale"
+                >
+                  <q-card style="width: 680px">
+                    <q-card-section class="bg-primary text-white">
+                      <div class="text-h6">
+                        <q-icon name="event_note" size="sm" /> Select Date & Time
+                      </div>
+                    </q-card-section>
+                    <q-card-section class="row q-gutter-md q-pa-md">
+                      <div class="col-auto">
+                        <q-date
+                          v-model="dateValue"
+                          mask="YYYY-MM-DD"
+                          color="primary"
+                          flat
+                          bordered
+                          @update:model-value="updateDateTime"
+                          class="shadow-1"
+                        />
+                      </div>
+                      <div class="col-auto">
+                        <q-time
+                          v-model="timeValue"
+                          mask="HH:mm"
+                          color="primary"
+                          format24h
+                          flat
+                          @update:model-value="updateDateTime"
+                          class="shadow-1"
+                          style="border: 1px solid #e0e0e0; border-radius: 8px"
+                        />
+                      </div>
+                    </q-card-section>
+                    <q-separator />
+                  </q-card>
+                </q-popup-proxy>
+              </q-icon>
+            </template>
+          </q-input>
+        </q-form>
+      </q-card-section>
+
+      <q-card-actions class="q-px-lg q-pb-lg q-pt-md">
+        <q-space />
+        <q-btn
+          flat
+          label="Cancel"
+          color="grey-7"
+          @click="$emit('update:modelValue', false)"
+          class="q-mr-sm"
+        />
+        <q-btn
+          unelevated
+          :label="operation === 'ADD' ? 'Create' : 'Update'"
+          color="primary"
+          @click="createAppointment"
+          :loading="loading"
+        />
+      </q-card-actions>
+    </q-card>
+  </q-dialog>
 </template>
 
 <script>

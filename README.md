@@ -1,6 +1,12 @@
 # appointment-manage-system (appointment-manage-system)
 
 Appointment management system. Vue 3 and Quasar were used.
+The purpose is to manage appointment processes.
+
+Example Screenshots:
+![Appoinment List](src/assets/appoinment_list.png)
+![Create Appoinment Dialog](src/assets/create_dialog.png)
+![Selected Data on Create Appoinment Dialog](src/assets/create_dialog_selected.png)
 
 ## Install the dependencies
 
