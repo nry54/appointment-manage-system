@@ -1,233 +1,217 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <q-page-container>
-      <q-page class="q-pa-md">
-        <div class="appointment-list-container">
-          <!-- Header Section -->
-          <div class="header-section">
-            <div class="appointment-count">
-              <span class="count-text">{{ filteredAppointments.length }} Appointment Found</span>
-            </div>
-            <div class="create-button">
-              <q-btn
-                push
-                no-caps
-                color="pink"
-                icon="add"
-                label="Create Appointment"
-                @click="openAppointmentDialog()"
-              />
-            </div>
-          </div>
+    <div class="appointment-list-container">
+      <!-- Header Section -->
+      <div class="header-section">
+        <div class="appointment-count">
+          <span class="count-text">{{ filteredAppointments.length }} Appointment Found</span>
+        </div>
+        <div class="create-button">
+          <q-btn
+            push
+            no-caps
+            color="pink"
+            icon="add"
+            label="Create Appointment"
+            @click="openAppointmentDialog()"
+          />
+        </div>
+      </div>
+      <!----->
 
-          <!-- Loading State for Appointments -->
-          <div v-if="appointmentsLoading" class="appointments-loading-container">
-            <div class="loading-header">
-              <q-skeleton type="text" width="200px" height="24px" class="q-mb-md" />
-              <q-skeleton type="text" width="150px" height="16px" />
-            </div>
-            <div class="loading-cards">
-              <div v-for="n in 6" :key="n" class="appointment-card-skeleton">
-                <div class="skeleton-section">
-                  <q-skeleton type="circle" size="40px" />
-                  <div class="skeleton-text">
-                    <q-skeleton type="text" width="120px" height="16px" />
-                    <q-skeleton type="text" width="100px" height="14px" />
-                  </div>
-                </div>
-                <div class="skeleton-section">
-                  <q-skeleton type="rect" width="80px" height="40px" />
-                  <q-skeleton type="text" width="60px" height="12px" />
-                </div>
-                <div class="skeleton-section">
-                  <q-skeleton type="text" width="140px" height="16px" />
-                  <q-skeleton type="text" width="100px" height="14px" />
-                </div>
-                <div class="skeleton-section">
-                  <div class="skeleton-avatars">
-                    <q-skeleton type="circle" size="32px" />
-                    <q-skeleton type="circle" size="32px" />
-                  </div>
-                </div>
+      <!-- Loading State for Appointments -->
+      <div v-if="appointmentsLoading" class="appointments-loading-container">
+        <div class="loading-header">
+          <q-skeleton type="text" width="200px" height="24px" class="q-mb-md" />
+          <q-skeleton type="text" width="150px" height="16px" />
+        </div>
+        <div class="loading-cards">
+          <div v-for="n in 6" :key="n" class="appointment-card-skeleton">
+            <div class="skeleton-section">
+              <q-skeleton type="circle" size="40px" />
+              <div class="skeleton-text">
+                <q-skeleton type="text" width="120px" height="16px" />
+                <q-skeleton type="text" width="100px" height="14px" />
               </div>
             </div>
-          </div>
-
-          <!-- Loading State -->
-          <div v-else-if="loading" class="loading-container">
-            <q-spinner size="40px" color="primary" />
-            <div class="loading-text">Loading appoinments...</div>
-          </div>
-
-          <!-- Appointment Cards -->
-          <div v-else class="appointment-cards">
-            <div
-              v-for="appointment in paginatedData"
-              :key="appointment.id"
-              class="appointment-card cursor-pointer"
-              @click="openDialog(appointment)"
-            >
-              <!-- Contact Information Section -->
-              <div class="contact-section">
-                <div class="contact-icons">
-                  <q-icon name="person" class="contact-icon" />
-                  <q-icon name="email" class="contact-icon" />
-                  <q-icon name="phone" class="contact-icon" />
-                </div>
-                <div class="contact-details">
-                  <div class="contact-name">{{ getContactName(appointment) }}</div>
-                  <div class="contact-email">
-                    {{ getContactEmail(appointment) }}
-                  </div>
-                  <div class="contact-phone">
-                    {{ getContactPhone(appointment) }}
-                  </div>
-                </div>
-              </div>
-
-              <!-- Address Section -->
-              <div class="address-section">
-                <q-icon name="home" class="address-icon" />
-                <div class="address-details">
-                  <div class="address-street">
-                    {{ appointment.fields.appointment_address || '-' }}
-                  </div>
-                </div>
-              </div>
-
-              <!-- Status Section -->
-              <div class="status-section">
-                <div class="status-pill">
-                  <div class="status-indicator">
-                    <div class="status-text" :class="getStatusTextClass(appointment)">
-                      {{ getStatusText(appointment) }}
-                    </div>
-                    <div
-                      v-if="
-                        !appointment.fields.is_cancelled &&
-                        !appointment.fields.is_completed &&
-                        getTimeRemaining(appointment.fields.appointment_date) &&
-                        !getTimeRemaining(appointment.fields.appointment_date).includes('PAST')
-                      "
-                      class="time-remaining"
-                    >
-                      {{ getTimeRemaining(appointment.fields.appointment_date) }}
-                    </div>
-                  </div>
-                  <div class="date-time-section">
-                    <div class="date-time-info">
-                      <div class="date-time-row">
-                        <q-icon name="schedule" class="clock-icon" />
-                        <span class="appointment-date-text">{{
-                          formatDate(appointment.fields.appointment_date)
-                        }}</span>
-
-                        <span class="appointment-time-text">{{
-                          formatTime(appointment.fields.appointment_date)
-                        }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Staff Section -->
-              <div class="staff-section">
-                <div
-                  v-if="getAgentNames(appointment) && getAgentNames(appointment).length > 0"
-                  class="agent-avatars"
-                >
-                  <q-avatar
-                    v-for="(agentName, index) in getAgentNames(appointment).slice(0, 3)"
-                    :key="index"
-                    :style="{ backgroundColor: getAgentColor(appointment, index) }"
-                    size="40px"
-                    class="text-white agent-avatar"
-                  >
-                    {{ getAgentInitials(agentName, getAgentSurname(appointment, index)) }}
-                  </q-avatar>
-
-                  <q-avatar
-                    v-if="getAgentNames(appointment).length > 3"
-                    color="grey-6"
-                    size="40px"
-                    class="text-white agent-avatar additional-staff"
-                  >
-                    +{{ getAgentNames(appointment).length - 3 }}
-                  </q-avatar>
-                </div>
-              </div>
+            <div class="skeleton-section">
+              <q-skeleton type="rect" width="80px" height="40px" />
+              <q-skeleton type="text" width="60px" height="12px" />
             </div>
-          </div>
-
-          <!-- Pagination -->
-          <div class="pagination-container">
-            <div class="pagination-info">
-              <span class="pagination-text">
-                Showing {{ startItem }} to {{ endItem }} of
-                {{ filteredAppointments.length }} appointments
-              </span>
-              <div class="rows-per-page-selector">
-                <span class="rows-label">Rows per page:</span>
-                <q-select
-                  v-model="rowsPerPage"
-                  :options="[5, 10, 15, 20, 25, 50]"
-                  dense
-                  outlined
-                  @update:model-value="updateRowsPerPage"
-                  style="width: 80px; margin-left: 8px"
-                  class="rows-select"
-                />
-              </div>
+            <div class="skeleton-section">
+              <q-skeleton type="text" width="140px" height="16px" />
+              <q-skeleton type="text" width="100px" height="14px" />
             </div>
-            <div class="pagination-controls">
-              <q-pagination
-                v-model="currentPage"
-                :max="totalPages"
-                :max-pages="7"
-                direction-links
-                boundary-links
-                color="primary"
-                text-color="grey-7"
-                active-design="unelevated"
-                active-color="primary"
-                active-text-color="white"
-                class="custom-pagination"
-              />
+            <div class="skeleton-section">
+              <div class="skeleton-avatars">
+                <q-skeleton type="circle" size="32px" />
+                <q-skeleton type="circle" size="32px" />
+              </div>
             </div>
           </div>
         </div>
-        <!-- Randevu Ekleme/Düzenleme Dialog -->
-        <AppoinmentDialog
-          v-model="appoinment.show"
-          :operation="appoinment.operation"
-          :appointment-data="appoinment.data"
-          @appointment-created="onAppointmentCreated"
-          @appointment-updated="onAppointmentUpdated"
-        ></AppoinmentDialog>
-      </q-page>
-    </q-page-container>
+      </div>
+
+      <!-- Appointment Cards -->
+      <div v-else class="appointment-cards">
+        <div
+          v-for="appointment in paginatedData"
+          :key="appointment.id"
+          class="appointment-card cursor-pointer"
+          @click="openDialog(appointment)"
+        >
+          <!-- Contact Information Section -->
+          <div class="contact-section">
+            <div class="contact-icons">
+              <q-icon name="person" class="contact-icon" />
+              <q-icon name="email" class="contact-icon" />
+              <q-icon name="phone" class="contact-icon" />
+            </div>
+            <div class="contact-details">
+              <div class="contact-name">{{ getContactName(appointment) }}</div>
+              <div class="contact-email">
+                {{ getContactEmail(appointment) }}
+              </div>
+              <div class="contact-phone">
+                {{ getContactPhone(appointment) }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Address Section -->
+          <div class="address-section">
+            <q-icon name="home" class="address-icon" />
+            <div class="address-details">
+              <div class="address-street">
+                {{ appointment.fields.appointment_address || '-' }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Status Section -->
+          <div class="status-section">
+            <div class="status-pill">
+              <div class="status-indicator">
+                <div class="status-text" :class="getStatusTextClass(appointment)">
+                  {{ getStatusText(appointment) }}
+                </div>
+                <div
+                  v-if="
+                    !appointment.fields.is_cancelled &&
+                    !appointment.fields.is_completed &&
+                    getTimeRemaining(appointment.fields.appointment_date) &&
+                    !getTimeRemaining(appointment.fields.appointment_date).includes('PAST')
+                  "
+                  class="time-remaining"
+                >
+                  {{ getTimeRemaining(appointment.fields.appointment_date) }}
+                </div>
+              </div>
+              <div class="date-time-section">
+                <div class="date-time-info">
+                  <div class="date-time-row">
+                    <q-icon name="schedule" class="clock-icon" />
+                    <span class="appointment-date-text">{{
+                      formatDate(appointment.fields.appointment_date)
+                    }}</span>
+
+                    <span class="appointment-time-text">{{
+                      formatTime(appointment.fields.appointment_date)
+                    }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Agent Section -->
+          <div class="staff-section">
+            <div
+              v-if="getAgentNames(appointment) && getAgentNames(appointment).length > 0"
+              class="agent-avatars"
+            >
+              <q-avatar
+                v-for="(agentName, index) in getAgentNames(appointment).slice(0, 3)"
+                :key="index"
+                :style="{ backgroundColor: getAgentColor(appointment, index) }"
+                size="40px"
+                class="text-white agent-avatar"
+              >
+                {{ getAgentInitials(agentName, getAgentSurname(appointment, index)) }}
+              </q-avatar>
+
+              <q-avatar
+                v-if="getAgentNames(appointment).length > 3"
+                color="grey-6"
+                size="40px"
+                class="text-white agent-avatar additional-staff"
+              >
+                +{{ getAgentNames(appointment).length - 3 }}
+              </q-avatar>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination-container">
+        <div class="pagination-info">
+          <span class="pagination-text">
+            Showing {{ startItem }} to {{ endItem }} of
+            {{ filteredAppointments.length }} appointments
+          </span>
+          <div class="rows-per-page-selector">
+            <span class="rows-label">Rows per page:</span>
+            <q-select
+              v-model="rowsPerPage"
+              :options="[5, 10, 15, 20, 25, 50]"
+              dense
+              outlined
+              @update:model-value="updateRowsPerPage"
+              style="width: 80px; margin-left: 8px"
+              class="rows-select"
+            />
+          </div>
+        </div>
+        <div class="pagination-controls">
+          <q-pagination
+            v-model="currentPage"
+            :max="totalPages"
+            :max-pages="7"
+            direction-links
+            boundary-links
+            color="primary"
+            text-color="grey-7"
+            active-design="unelevated"
+            active-color="primary"
+            active-text-color="white"
+            class="custom-pagination"
+          />
+        </div>
+      </div>
+    </div>
+    <!-- Add and Edit Appointment Dialog -->
+    <AppoinmentDialog
+      v-model="appoinmentDialog.show"
+      :operation="appoinmentDialog.operation"
+      :appointment-data="appoinmentDialog.data"
+      @appointment-created="onAppointmentCreated"
+      @appointment-updated="onAppointmentUpdated"
+    ></AppoinmentDialog>
   </q-layout>
 </template>
 
 <script>
 import { defineComponent } from 'vue'
 import AppoinmentDialog from 'src/components/AppointmentDialog.vue'
-import { DEFAULT_PAGINATION, STATUS } from '../constants'
-import { useAgentService } from '../stores/useAgentService'
+import { DEFAULT_PAGINATION, STATUS } from '../constants' // Defualt Pagination Constants and status constants
+import { useAgentService } from '../stores/useAgentService' // agent operations methods
 
 export default defineComponent({
   name: 'AppointmentList',
 
   props: {
-    appointments: {
-      type: Array,
-      default: () => [],
-    },
-    loading: {
-      type: Boolean,
-      default: false,
-    },
+    // Get filters data from parent component(MainLayout <- from FilterComponent)
     filters: {
       type: Object,
       default: () => ({}),
@@ -235,6 +219,7 @@ export default defineComponent({
   },
   components: { AppoinmentDialog },
   setup() {
+    // Use the agent service for agent operations methods
     const agentService = useAgentService()
     return {
       agentService,
@@ -242,20 +227,25 @@ export default defineComponent({
   },
   data: function () {
     return {
+      /**  API Configuration TODO: Move to a separate file */
       apiUrl: process.env.VUE_APP_API_BASE_URL || '',
       baseId: process.env.VUE_APP_API_BASE_ID || '',
       appoinmentTableId: process.env.VUE_APP_API_APPOINTMENT_TABLE_ID || '',
       apiKey: process.env.VUE_APP_API_KEY || '',
+
       paginatedAppointments: [],
       filteredAppointments: [],
-      // Pagination properties using DEFAULT_PAGINATION constants
+
+      // Pagination properties using DEFAULT_PAGINATION constants - TODO: Move to a separate file
       currentPage: DEFAULT_PAGINATION.page,
       rowsPerPage: DEFAULT_PAGINATION.rowsPerPage,
       sortBy: DEFAULT_PAGINATION.sortBy,
       descending: DEFAULT_PAGINATION.descending,
+
       appointmentsLoading: false, // Separate loading state for appointments data
 
-      appoinment: {
+      // Appointment Dialog properties
+      appoinmentDialog: {
         show: false,
         oparation: 'ADD',
         data: null,
@@ -263,6 +253,7 @@ export default defineComponent({
     }
   },
   computed: {
+    // Pagination computed properties
     totalPages() {
       return Math.ceil(this.filteredAppointments.length / this.rowsPerPage)
     },
@@ -309,6 +300,7 @@ export default defineComponent({
     },
   },
   watch: {
+    // Filters watcher - Changing filters will trigger this watcher
     filters: {
       handler(newFilters) {
         this.applyFilters(newFilters)
@@ -318,52 +310,49 @@ export default defineComponent({
     },
   },
   mounted() {
-    this.init()
+    this.init() //IMPORTANT: APPOINTMENTS ARE ONLY CALLED ONCE
   },
   methods: {
+    // Fetch Call API for appointments
     async init() {
-      // Randevuların listelendiği endpointi axios ile çağır
       try {
         this.appointmentsLoading = true
-        const axios = (await import('axios')).default
+        const axios = (await import('axios')).default // dynamically import axios
 
+        // Check if all required variables are set
         if (!this.apiUrl || !this.baseId || !this.appoinmentTableId || !this.apiKey) {
-          console.error(
-            'API URL, Base ID, Appointment Table ID veya API KEY eksik. Lütfen .env dosyanızı kontrol edin.',
-          )
+          console.error('Please control .env file')
           return
         }
-        // Gerekirse endpoint'i logla
+
         const endpoint = `${this.apiUrl}/${this.baseId}/${this.appoinmentTableId}`
 
-        // API key'i header olarak ekleyeceğiz
+        // We will add the API key as a header
         const config = {
           headers: {
             Authorization: `Bearer ${this.apiKey}`,
-            // Eğer API farklı bir header bekliyorsa örn. 'x-api-key', yukarıdaki satırı değiştirin
           },
         }
-        const response = await axios.get(endpoint, config)
-        // Elde edilen randevuları component'in appointments prop'una emit ile gönderiyoruz
-        const { records } = response.data
-        // filters.status varsa, status'a göre filtrele
-        let filteredRecords = records
 
-        filteredRecords = this.filterRecords(records, this.filters)
+        const response = await axios.get(endpoint, config) // Make API call
+        const { records } = response.data // Extract records - destructuring assignment
+
+        let filteredRecords = records
+        filteredRecords = this.filterRecords(records, this.filters) // Apply filters
+
         this.paginatedAppointments = records // Keep original data
         this.filteredAppointments = filteredRecords // Keep filtered data
         this.currentPage = DEFAULT_PAGINATION.page // Reset to first page using constant
 
-        // Fetch agent details using centralized service
-        await this.fetchAgentDetailsForAppointments(records)
-        console.log('Appointments loaded:', records.length)
+        await this.fetchAgentDetailsForAppointments(records) // Fetch agent details
       } catch (error) {
-        // Hata durumunda konsola yazdır
-        console.error('Randevular alınırken hata oluştu:', error)
+        console.error('An error occurred while fetching appointments:', error)
       } finally {
-        this.appointmentsLoading = false
+        this.appointmentsLoading = false // Completed fetch operations and loading is completed
       }
     },
+
+    // Agent details for appoinment records
     async fetchAgentDetailsForAppointments(appointments) {
       // Extract unique agent IDs from all appointments
       const uniqueAgentIds = new Set()
@@ -375,12 +364,16 @@ export default defineComponent({
           })
         }
       })
+      ////////////////
 
       // Fetch agent details using the centralized service
       if (uniqueAgentIds.size > 0) {
+        // Async call to getAgentsByIds method with agent ID array
         await this.agentService.getAgentsByIds([...uniqueAgentIds])
       }
     },
+
+    // Contact Name-Surname for appoinment record
     getContactName(appointment) {
       const contactName = appointment.fields.contact_name
       const contactSurname = appointment.fields.contact_surname
@@ -408,6 +401,7 @@ export default defineComponent({
       return 'Unknown Contact'
     },
 
+    // Contact Email for appoinment record
     getContactEmail(appointment) {
       const contactEmail = appointment.fields.contact_email
 
@@ -422,6 +416,7 @@ export default defineComponent({
       return '-'
     },
 
+    // Contact Phone for appoinment record
     getContactPhone(appointment) {
       const contactPhone = appointment.fields.contact_phone
 
@@ -436,6 +431,7 @@ export default defineComponent({
       return '-'
     },
 
+    // Agent Name for appoinment record
     getAgentNames(appointment) {
       const agentName = appointment.fields.agent_name
 
@@ -450,6 +446,7 @@ export default defineComponent({
       return []
     },
 
+    // Agent Surname for appoinment record
     getAgentSurname(appointment, index) {
       const agentSurname = appointment.fields.agent_surname
 
@@ -463,8 +460,10 @@ export default defineComponent({
 
       return ''
     },
+
+    // Get initials from agent name and surname and combined (For avatar)
     getAgentInitials(name, surname) {
-      // Handle array elements - get initials from agent name and surname
+      // Handle array elements
       let initials = ''
       if (name && name.trim()) {
         initials += name.trim().charAt(0)
@@ -474,8 +473,10 @@ export default defineComponent({
       }
       return initials.toUpperCase() || '?'
     },
+
+    // Using centralized service(agent service), get agent color
     getAgentColor(appointment, index) {
-      // First try to get color from agent_id lookup using centralized service
+      // First try to get color from agent_id lookup
       if (appointment.fields.agent_id && appointment.fields.agent_id[index]) {
         const agentId = appointment.fields.agent_id[index]
         const agentDetails = this.agentService.agentDetails[agentId]
@@ -484,48 +485,48 @@ export default defineComponent({
         }
       }
 
-      // Fallback to agent_color field if available
-      if (appointment.fields.agent_color && appointment.fields.agent_color[index]) {
-        return appointment.fields.agent_color[index]
-      }
-
       // Use centralized service for default colors with comprehensive palette
       return this.agentService.getAgentColor(null, index)
     },
+
+    // Get status text for appoinment record
     getStatusText(appointment) {
-      // Eğer iptal edilmişse
+      // If cancelled
       if (appointment.fields.is_cancelled) {
         return STATUS.find((s) => s.value === 'CANCELLED')?.label || 'Cancelled'
       }
 
-      // UPCOMING durumunda tarihe göre dinamik metin
+      // Dynamic text by date for UPCOMING status
       if (appointment.fields.appointment_date) {
-        const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date)
+        const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date) // Calculate remaining time
 
+        // If past, appoinment is completed
         if (timeRemaining === 'PAST') {
-          // Eğer tamamlanmışsa
           return 'Completed'
         }
 
+        // If appoinment is not 'cancelled' and 'past', appoinment is 'Upcoming' status
         if (timeRemaining.includes('minute') || timeRemaining.includes('hour')) return 'Upcoming'
         if (timeRemaining === '1 day') return 'Upcoming'
         if (timeRemaining.includes('day') && !timeRemaining.includes('week')) return 'Upcoming'
         if (timeRemaining.includes('week') || timeRemaining.includes('month')) return 'Upcoming'
       }
 
-      // Varsayılan olarak UPCOMING
+      // Default status -> UPCOMING
       return STATUS.find((s) => s.value === 'UPCOMING')?.label || 'Upcoming'
     },
+
+    // Return dynamic color class based on appointment status
     getStatusTextClass(appointment) {
-      // Return dynamic color class based on appointment status
+      // If cancelled
       if (appointment.fields.is_cancelled) {
         return 'status-text-cancelled'
       }
 
       if (appointment.fields.appointment_date) {
-        const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date)
+        const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date) // Calculate remaining time
 
-        if (timeRemaining.includes('PAST')) return 'status-text-completed'
+        if (timeRemaining.includes('PAST')) return 'status-text-completed' // If past
         if (timeRemaining.includes('minute') || timeRemaining.includes('hour'))
           return 'status-text-upcoming'
         if (timeRemaining === '1 day') return 'status-text-tomorrow'
@@ -535,8 +536,10 @@ export default defineComponent({
           return 'status-text-upcoming'
       }
 
-      return 'status-text-upcoming'
+      return 'status-text-upcoming' // Default
     },
+
+    // Get time remaining for appoinment record
     getTimeRemaining(appointmentDate) {
       if (!appointmentDate) return ''
 
@@ -567,14 +570,18 @@ export default defineComponent({
         return `${diffDays} day${diffDays !== 1 ? 's' : ''}`
       }
 
+      // If appointment is more than 7 days away or 7 day + less one mounth (Calculated by weeks)
       if (diffDays < 30) {
         const weeks = Math.floor(diffDays / 7)
         return `${weeks} week${weeks !== 1 ? 's' : ''}`
       }
 
+      // If appointment is more than 30 days away or 30 day (Calculated by months)
       const months = Math.floor(diffDays / 30)
       return `${months} month${months !== 1 ? 's' : ''}`
     },
+
+    // Format date - Using Locale format date
     formatDate(dateString) {
       if (!dateString) return '-'
       const date = new Date(dateString)
@@ -584,6 +591,8 @@ export default defineComponent({
         year: 'numeric',
       })
     },
+
+    // Format time - Using Locale format time
     formatTime(dateTimeString) {
       if (!dateTimeString) return '-'
 
@@ -594,33 +603,39 @@ export default defineComponent({
         hour12: false,
       })
     },
-    isAppointmentCompleted(appointment) {
-      // Determine if appointment is completed based on date/time
+
+    /*
+     * Check if appoinment status
+     * return {boolean}
+     */
+    isAppointmentStatus(appointment, status) {
       // Important: Cancelled appointments should never be considered completed
+
+      // If cancelled
       if (appointment.fields.is_cancelled) {
         return false
       }
 
+      // If no date
       if (!appointment.fields.appointment_date) {
         return false
       }
 
-      const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date)
-      return timeRemaining === 'PAST'
-    },
-    isAppointmentUpcoming(appointment) {
-      // Determine if appointment is upcoming (not cancelled and not in the past)
-      if (appointment.fields.is_cancelled) {
-        return false
+      const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date) // Calculate remaining time
+
+      // COMPLETED -> PAST must be
+      // UPCOMING -> PAST must not be
+
+      if (status === 'COMPLETED') {
+        return timeRemaining === 'PAST'
       }
 
-      if (!appointment.fields.appointment_date) {
-        return true // Default to upcoming if no date
+      if (status === 'UPCOMING') {
+        return timeRemaining !== 'PAST'
       }
-
-      const timeRemaining = this.getTimeRemaining(appointment.fields.appointment_date)
-      return timeRemaining !== 'PAST'
     },
+
+    // Undo formatting to compare by date filtering - Switch to system format
     parseFilterDate(dateString) {
       // Parse date string in format: DD-MM-YYYY HH:mm
       if (!dateString) return null
@@ -651,24 +666,27 @@ export default defineComponent({
         return null
       }
     },
+
+    // Filter the list of records according to the filters in the filters object
     filterRecords(records, filters) {
-      // filters objesindeki filtrelere göre records listesini filtrele
+      // No filters, return all records
       if (!filters || Object.keys(filters).length === 0) {
         return records
       }
 
+      // Apply filters
       return records.filter((record) => {
-        // Her bir filtre için kontrol et
+        // Check each filter
         for (const key in filters) {
           const filterValue = filters[key]
-          // Eğer filtre değeri boşsa veya null ise atla
+
+          // If the filter value is empty or null, skip it.
           if (filterValue === null || filterValue === '' || filterValue === undefined) continue
 
           // Agent Filter - ID-based filtering only
           if (key === 'selectedAgents') {
             if (filterValue && filterValue.length > 0) {
-              // Get agent IDs from the appointment
-              const appointmentAgentIds = record.fields.agent_id || []
+              const appointmentAgentIds = record.fields.agent_id || [] // Get agent IDs from the appointment
 
               // Ensure appointmentAgentIds is an array
               const agentIds = Array.isArray(appointmentAgentIds)
@@ -686,17 +704,13 @@ export default defineComponent({
             }
           }
 
-          // Eğer filtrelenen alan "status" ise, özel bir kontrol uygula
+          // If the filtered field is “status”
           if (key === 'status') {
-            // status değeri "upcoming", "completed", "cancelled" gibi olabilir
-            if (filterValue === 'UPCOMING') {
+            // isAppointmentStatus is common method for UPCOMING and COMPLETED
+            if (filterValue === 'UPCOMING' || filterValue === 'COMPLETED') {
               // Upcoming: not cancelled and not completed (not in the past)
-              if (!this.isAppointmentUpcoming(record)) {
-                return false
-              }
-            } else if (filterValue === 'COMPLETED') {
               // Completed: appointment date is in the past
-              if (!this.isAppointmentCompleted(record)) {
+              if (!this.isAppointmentStatus(record, filterValue)) {
                 return false
               }
             } else if (filterValue === 'CANCELLED') {
@@ -709,6 +723,7 @@ export default defineComponent({
             continue
           }
 
+          // Search by text (Contact name,address,phone,email)
           if (key === 'search') {
             if (filterValue) {
               const { appointment_address } = record.fields
@@ -758,49 +773,50 @@ export default defineComponent({
         return true
       })
     },
+
+    // Apply filters to the list of records
     applyFilters(filters = this.filters) {
       const filteredRecords = this.filterRecords(this.paginatedAppointments, filters)
       this.filteredAppointments = filteredRecords
       this.currentPage = DEFAULT_PAGINATION.page // Reset to first page when filters change using constant
     },
+
+    // Preparing column name for sort operations
     getNestedValue(obj, path) {
       return path.split('.').reduce((current, key) => {
         return current && current[key] !== undefined ? current[key] : null
       }, obj)
     },
+
+    // Update rows per page
     updateRowsPerPage(newRowsPerPage) {
       this.rowsPerPage = newRowsPerPage
       this.currentPage = DEFAULT_PAGINATION.page // Reset to first page using constant
     },
-    updateSorting(sortBy, descending = false) {
-      this.sortBy = sortBy
-      this.descending = descending
-      this.currentPage = DEFAULT_PAGINATION.page // Reset to first page using constant
-    },
-    resetPagination() {
-      this.currentPage = DEFAULT_PAGINATION.page
-      this.rowsPerPage = DEFAULT_PAGINATION.rowsPerPage
-      this.sortBy = DEFAULT_PAGINATION.sortBy
-      this.descending = DEFAULT_PAGINATION.descending
-    },
+
+    // Open dialog for Add new appointment
     openAppointmentDialog() {
-      this.appoinment.show = true
-      this.appoinment.operation = 'ADD'
+      this.appoinmentDialog.show = true
+      this.appoinmentDialog.operation = 'ADD'
     },
+
+    // Handle appointment creation
     onAppointmentCreated() {
-      // Handle appointment creation
-      this.appoinment.show = false
+      this.appoinmentDialog.show = false
       this.init() // Refresh the appointment list
     },
+
+    // Handle appointment update
     onAppointmentUpdated() {
-      // Handle appointment update
-      this.appoinment.show = false
+      this.appoinmentDialog.show = false
       this.init() // Refresh the appointment list
     },
+
+    // Open dialog for editing an appointment
     openDialog(appointment) {
-      this.appoinment.show = true
-      this.appoinment.operation = 'EDIT'
-      this.appoinment.data = appointment
+      this.appoinmentDialog.show = true
+      this.appoinmentDialog.operation = 'EDIT'
+      this.appoinmentDialog.data = appointment
     },
   },
 })

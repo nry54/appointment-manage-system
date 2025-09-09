@@ -1,14 +1,10 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <q-page-container>
-      <q-page class="q-pa-md">
-        <FilterComponent @filter-changed="filterChanged" />
-        <!-- Filter Section Component -->
+    <FilterComponent @filter-changed="filterChanged" />
+    <!-- Filter Section Component -->
 
-        <!-- Appoinment List Component-->
-        <AppointmentList :filters="currentFilters" />
-      </q-page>
-    </q-page-container>
+    <!-- Appoinment List Component-->
+    <AppointmentList :filters="currentFilters" />
   </q-layout>
 </template>
 
