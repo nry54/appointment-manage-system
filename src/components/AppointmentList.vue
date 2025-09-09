@@ -64,7 +64,8 @@
             <div
               v-for="appointment in paginatedData"
               :key="appointment.id"
-              class="appointment-card"
+              class="appointment-card cursor-pointer"
+              @click="openDialog(appointment)"
             >
               <!-- Contact Information Section -->
               <div class="contact-section">
@@ -200,6 +201,7 @@
         <AppoinmentDialog
           v-model="appoinment.show"
           :operation="appoinment.operation"
+          :appointment-data="appoinment.data"
           @appointment-created="onAppointmentCreated"
           @appointment-updated="onAppointmentUpdated"
         ></AppoinmentDialog>
@@ -264,6 +266,7 @@ export default defineComponent({
       appoinment: {
         show: false,
         oparation: 'ADD',
+        data: null,
       },
     }
   },
@@ -388,14 +391,26 @@ export default defineComponent({
     },
     getContactName(appointment) {
       const contactName = appointment.fields.contact_name
+      const contactSurname = appointment.fields.contact_surname
 
       // Handle different data types
       if (Array.isArray(contactName)) {
-        return contactName[0] || 'Unknown Contact'
+        if (Array.isArray(contactSurname)) {
+          let surname = contactSurname[0]
+
+          if (typeof contactSurname === 'string') {
+            surname = contactSurname
+          }
+
+          if (surname) {
+            return `${contactName[0]} ${surname}`
+          }
+        }
+        return contactName[0]
       }
 
       if (typeof contactName === 'string') {
-        return contactName || 'Unknown Contact'
+        return contactName
       }
 
       return 'Unknown Contact'
@@ -767,6 +782,11 @@ export default defineComponent({
       // Handle appointment update
       this.appoinment.show = false
       this.init() // Refresh the appointment list
+    },
+    openDialog(appointment) {
+      this.appoinment.show = true
+      this.appoinment.operation = 'EDIT'
+      this.appoinment.data = appointment
     },
   },
 })

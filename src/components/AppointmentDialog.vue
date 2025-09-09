@@ -42,13 +42,14 @@
               </div>
               <q-card flat class="selected-contact-card">
                 <q-card-section class="contact-card-section">
-                  <div class="contact-avatar-section">
-                    <q-avatar color="primary" text-color="white" size="48px" class="contact-avatar">
-                      {{ getContactInitials(formData.selectedContact) }}
-                    </q-avatar>
-                  </div>
                   <div class="contact-info-section">
-                    <div class="contact-name">{{ formData.selectedContact.contact_name }}</div>
+                    <div class="contact-details">
+                      <div class="contact-detail-item">
+                        <q-icon name="person" class="detail-icon" />
+                        {{ formData.selectedContact.contact_name }}
+                        {{ formData.selectedContact.contact_surname }}
+                      </div>
+                    </div>
                     <div class="contact-details">
                       <div class="contact-detail-item">
                         <q-icon name="email" size="14px" class="detail-icon" />
@@ -120,7 +121,9 @@
                         <q-icon name="phone" class="contact-icon" />
                       </div>
                       <div class="contact-details">
-                        <div class="contact-name">{{ scope.opt.contact_name }}</div>
+                        <div class="contact-name">
+                          {{ scope.opt.contact_name }} {{ scope.opt.contact_surname }}
+                        </div>
                         <div class="contact-email">
                           {{ scope.opt.contact_email || '-' }}
                         </div>
@@ -221,8 +224,8 @@
                     <q-avatar
                       :style="{ backgroundColor: getAgentColor(agent, index) }"
                       text-color="white"
-                      size="32px"
-                      class="agent-avatar-selected"
+                      size="40px"
+                      class="agent-avatar"
                     >
                       {{ getAgentInitials(agent) }}
                     </q-avatar>
@@ -597,9 +600,16 @@ export default {
             contact_phone: this.formData.selectedContact.contact_phone || '',
             address: this.formData.address,
             appointment_date: this.formData.appointmentDate,
-            agent_id: this.formData.selectedAgent?.map((agent) => agent.id),
-            agent_name: this.formData.selectedAgent?.map((agent) => agent.agent_name),
-            agent_surname: this.formData.selectedAgent?.map((agent) => agent.agent_surname),
+            agents: this.formData.selectedAgents.map((agent) => {
+              // Format agents for Airtable - adjust based on your field type
+              if (agent.agent_id) {
+                return agent.agent_id // If agents field is a linked record
+              } else {
+                // If agents field is text, send agent names
+                const agentName = `${agent.agent_name || ''} ${agent.agent_surname || ''}`.trim()
+                return agentName
+              }
+            }),
             created_at: new Date().toISOString(),
           },
         }
@@ -768,24 +778,48 @@ export default {
       }
     },
 
-    getContactInitials(contact) {
-      const name = contact.contact_name || ''
-      const surname = contact.contact_surname || ''
+    getContactInitials(name, surname) {
+      const nameInit = name?.[0] || ''
+      const surnameInit = surname?.[0] || ''
       let initials = ''
-      if (name) initials += name.charAt(0)
-      if (surname) initials += surname.charAt(0)
+
+      if (nameInit) initials += nameInit.charAt(0)
+      if (surnameInit) initials += surnameInit.charAt(0)
       return initials.toUpperCase() || '?'
     },
 
     getAgentInitials(agent) {
       let initials = ''
-      const agentData = agent.agentData || agent
-      const { agent_name, agent_surname } = agentData
 
-      if (agent_name) {
+      // Handle different agent data structures
+      if (!agent) {
+        return '?'
+      }
+
+      // If agent is a string (like "John Doe"), split it
+      if (typeof agent === 'string') {
+        const nameParts = agent.trim().split(' ')
+        if (nameParts.length >= 1 && nameParts[0]) {
+          initials += nameParts[0].charAt(0)
+        }
+        if (nameParts.length >= 2 && nameParts[nameParts.length - 1]) {
+          initials += nameParts[nameParts.length - 1].charAt(0)
+        }
+        return initials.toUpperCase() || '?'
+      }
+
+      // Handle object structure
+      const agentData = agent.agentData || agent
+      let { agent_name, agent_surname } = agentData || {}
+
+      // Ensure agent_name and agent_surname are strings
+      agent_name = String(agent_name || '')
+      agent_surname = String(agent_surname || '')
+
+      if (agent_name && agent_name.trim()) {
         initials += agent_name.charAt(0)
       }
-      if (agent_surname) {
+      if (agent_surname && agent_surname.trim()) {
         initials += agent_surname.charAt(0)
       }
 
@@ -800,8 +834,21 @@ export default {
 
     getAgentLabel(agent) {
       if (!agent) return 'Agent'
-      const { agent_name, agent_surname } = agent
-      return `${agent_name || ''} ${agent_surname || ''}`.trim() || 'Agent'
+
+      // If agent is a string, return it directly
+      if (typeof agent === 'string') {
+        return agent.trim() || 'Agent'
+      }
+
+      // Handle object structure
+      const agentData = agent.agentData || agent
+      let { agent_name, agent_surname } = agentData || {}
+
+      // Ensure names are strings
+      agent_name = String(agent_name || '')
+      agent_surname = String(agent_surname || '')
+
+      return `${agent_name} ${agent_surname}`.trim() || 'Agent'
     },
 
     addAgent(selectedAgent) {
@@ -912,37 +959,62 @@ export default {
 
     loadAppointmentData() {
       if (this.appointmentData) {
-        this.formData.appointmentId = this.appointmentData.id
-        this.formData.address = this.appointmentData.fields?.address || ''
-        this.formData.appointmentDate = this.appointmentData.fields?.appointment_date || ''
+        const { appointment_id, contact_id, contact_name, appointment_address, appointment_date } =
+          this.appointmentData.fields
+        this.formData.appointmentId = appointment_id
+        this.formData.address = appointment_address || ''
+        this.formData.appointmentDate = appointment_date || ''
 
         // Load contact data
-        if (this.appointmentData.fields?.contact_id || this.appointmentData.fields?.contact_name) {
+        if (contact_id || contact_name) {
           this.formData.selectedContact = {
             id: this.appointmentData.fields.contact_id,
-            contact_name: this.appointmentData.fields.contact_name,
-            contact_email: this.appointmentData.fields.contact_email,
-            contact_phone: this.appointmentData.fields.contact_phone,
+            contact_name: this.appointmentData.fields.contact_name[0],
+            contact_email: this.appointmentData.fields.contact_email[0],
+            contact_phone: this.appointmentData.fields.contact_phone[0],
           }
         }
 
-        // Load agents data
-        if (
-          this.appointmentData.fields?.agents &&
-          Array.isArray(this.appointmentData.fields.agents)
-        ) {
-          this.formData.selectedAgents = this.appointmentData.fields.agents
+        // Load agents data - Enhanced to handle different formats
+        if (this.appointmentData.fields?.agents) {
+          const agentsData = this.appointmentData.fields.agents
+
+          // Reset selected agents
+          this.formData.selectedAgents = []
+
+          if (Array.isArray(agentsData)) {
+            // Handle array of agents
+            agentsData.forEach((agentData, index) => {
+              if (typeof agentData === 'string') {
+                // If it's a string, create an object
+                const nameParts = agentData.trim().split(' ')
+                this.formData.selectedAgents.push({
+                  agent_name: nameParts[0] || '',
+                  agent_surname: nameParts.slice(1).join(' ') || '',
+                  id: `agent_${index}`,
+                })
+              } else if (typeof agentData === 'object' && agentData !== null) {
+                // If it's an object, use it directly
+                this.formData.selectedAgents.push(agentData)
+              }
+            })
+          } else if (typeof agentsData === 'string') {
+            // Handle single string
+            const nameParts = agentsData.trim().split(' ')
+            this.formData.selectedAgents.push({
+              agent_name: nameParts[0] || '',
+              agent_surname: nameParts.slice(1).join(' ') || '',
+              id: 'agent_0',
+            })
+          }
+
+          // console.log('Processed selected agents:', this.formData.selectedAgents)
         }
 
         // Parse date and time for date/time inputs
-        if (this.formData.appointmentDate) {
+        if (appointment_date) {
           try {
-            const [datePart, timePart] = this.formData.appointmentDate.split(' ')
-            if (datePart && timePart) {
-              const [day, month, year] = datePart.split('-')
-              this.dateValue = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
-              this.timeValue = timePart
-            }
+            this.formData.appointment_date = appointment_date.toISOString()
           } catch (error) {
             console.warn('Error parsing appointment date:', error)
           }
@@ -1230,13 +1302,6 @@ export default {
   flex-shrink: 0;
 }
 
-.agent-avatar-selected {
-  border: 3px solid white;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.2);
-  font-weight: 700;
-  font-size: 14px;
-}
-
 .agent-status-indicator {
   position: absolute;
   bottom: -2px;
@@ -1317,9 +1382,17 @@ export default {
 }
 
 .agent-avatar {
-  border: 3px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+  margin-left: -8px;
+  border: 3px solid #ffffff;
   transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .agent-option-item:hover .agent-avatar {
