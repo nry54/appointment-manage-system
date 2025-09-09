@@ -335,6 +335,8 @@ export default {
       } else {
         this.filters.selectedAgents.push(agentId)
       }
+
+      this.applyFilters()
     },
     isSelected(agentId) {
       return this.filters.selectedAgents.includes(agentId)

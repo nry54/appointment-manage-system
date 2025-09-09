@@ -672,6 +672,28 @@ export default defineComponent({
           // Eğer filtre değeri boşsa veya null ise atla
           if (filterValue === null || filterValue === '' || filterValue === undefined) continue
 
+          // Agent Filter - ID-based filtering only
+          if (key === 'selectedAgents') {
+            if (filterValue && filterValue.length > 0) {
+              // Get agent IDs from the appointment
+              const appointmentAgentIds = record.fields.agent_id || []
+
+              // Ensure appointmentAgentIds is an array
+              const agentIds = Array.isArray(appointmentAgentIds)
+                ? appointmentAgentIds
+                : [appointmentAgentIds]
+
+              // Check if any of the selected agent IDs match the appointment's agent IDs
+              const hasMatchingAgent = filterValue.some((selectedAgentId) => {
+                return agentIds.includes(selectedAgentId)
+              })
+
+              if (!hasMatchingAgent) {
+                return false
+              }
+            }
+          }
+
           // Eğer filtrelenen alan "status" ise, özel bir kontrol uygula
           if (key === 'status') {
             // status değeri "upcoming", "completed", "cancelled" gibi olabilir
