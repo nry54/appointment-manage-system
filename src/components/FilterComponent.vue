@@ -44,8 +44,8 @@
                   v-if="allAgents.length > 5"
                   color="grey-4"
                   text-color="grey-8"
-                  size="35px"
-                  class="cursor-pointer"
+                  size="40px"
+                  class="cursor-pointer agent-avatar"
                   @click="agentSelectDialog = true"
                 >
                   <span class="text-caption text-weight-medium">+{{ allAgents.length - 5 }}</span>

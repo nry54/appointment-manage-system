@@ -878,6 +878,7 @@ export default defineComponent({
   align-items: center;
   transition: all 0.2s ease;
   min-height: 120px;
+  justify-items: center;
 }
 
 .appointment-card:hover {
@@ -1338,7 +1339,6 @@ export default defineComponent({
   }
 
   .staff-section {
-    grid-column: 1 / -1;
     justify-content: flex-start;
     margin-top: 12px;
   }
@@ -1439,7 +1439,6 @@ export default defineComponent({
 
 @media (max-width: 480px) {
   .status-pill {
-    flex-direction: column;
     gap: 12px;
     padding: 16px 20px;
   }
