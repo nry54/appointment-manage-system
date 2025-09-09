@@ -233,14 +233,6 @@ export default defineComponent({
       default: () => ({}),
     },
   },
-
-  emits: [
-    'appointment-listed',
-    'appointment-saved',
-    'appointment-deleted',
-    'appointment-updated',
-    'updated-filter',
-  ],
   components: { AppoinmentDialog },
   setup() {
     const agentService = useAgentService()

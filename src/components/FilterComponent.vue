@@ -8,8 +8,9 @@
             <q-skeleton v-for="n in 5" :key="n" type="QAvatar" size="40px" class="agent-skeleton" />
             <div class="loading-text">Loading agents...</div>
           </div>
+          <!-------->
 
-          <!-- Agent Selection Area -->
+          <!-- Agent Selection Area - Show five avatar of agents The remaining avatars are displayed as a number-->
           <div v-else-if="allAgents && allAgents.length > 0" class="agent-selection-area">
             <q-avatar
               v-for="agent in allAgents.slice(0, 5)"
@@ -33,9 +34,11 @@
               +{{ allAgents.length - 5 }}
             </q-avatar>
           </div>
+          <!--------------->
         </div>
 
-        <div class="col-auto">
+        <!-- STATUS FILTER-->
+        <div class="col-shrink">
           <q-select
             v-model="filters.status"
             :options="statusOptions"
@@ -47,9 +50,11 @@
             style="min-width: 150px"
           />
         </div>
+        <!--------------------->
 
-        <div class="col-auto">
-          <div class="row q-gutter-md no-wrap date-filter-group">
+        <!-- DATE AND TIME FILTER-->
+        <div class="col-shrink">
+          <div class="row wrap date-filter-group">
             <q-input
               :model-value="filters.dateFrom"
               @update:model-value="(val) => (filters.dateFrom = val)"
@@ -164,26 +169,29 @@
             </q-input>
           </div>
         </div>
-      </div>
+        <!--------------------->
 
-      <div class="col-auto search-input-container">
-        <q-input
-          v-model="filters.search"
-          label="Search"
-          outlined
-          dense
-          clearable
-          debounce="300"
-          @update:model-value="applyFilters"
-          class="search-input primary-border"
-          style="min-width: 250px"
-        >
-          <template v-slot:append>
-            <div class="search-icon-container">
-              <q-icon name="search" class="cursor-pointer search-icon" />
-            </div>
-          </template>
-        </q-input>
+        <!-- Search Input -->
+        <div class="col-auto search-input-container">
+          <q-input
+            v-model="filters.search"
+            label="Search"
+            outlined
+            dense
+            clearable
+            debounce="300"
+            @update:model-value="applyFilters"
+            class="search-input primary-border"
+            style="min-width: 250px"
+          >
+            <template v-slot:append>
+              <div class="search-icon-container">
+                <q-icon name="search" class="cursor-pointer search-icon" />
+              </div>
+            </template>
+          </q-input>
+        </div>
+        <!--------------------->
       </div>
     </div>
   </div>
@@ -191,15 +199,9 @@
 
 <script>
 import { STATUS } from '../constants/index'
-// import FilterAgentDialog from 'src/components/FilterAgentDialog.vue'
 
 export default {
   name: 'FilterComponent',
-
-  emits: ['filter-changed'],
-  components: {
-    // FilterAgentDialog,
-  },
   data() {
     return {
       filters: {
@@ -213,64 +215,30 @@ export default {
         status: STATUS.ALL,
         search: '',
       },
-      allAgents: [],
+      allAgents: [], // All agents variable
+      /**  API Configuration TODO: Move to a separate file */
       apiUrl: process.env.VUE_APP_API_BASE_URL || '',
       baseId: process.env.VUE_APP_API_BASE_ID || '',
       agentTableId: process.env.VUE_APP_API_AGENT_TABLE_ID || '',
       apiKey: process.env.VUE_APP_API_KEY || '',
-      agentSelectDialog: false,
+
+      agentSelectDialog: false, // Dialog for agent selection
       agentsLoading: false, // Loading state for agents
     }
   },
-
   computed: {
+    // Get Status options from constants
     statusOptions() {
       return STATUS
-    },
-
-    activeFilters() {
-      const active = {}
-
-      if (this.filters.dateFrom) {
-        active.dateFrom = {
-          label: 'Başlangıç',
-          value: this.filters.dateFrom,
-        }
-      }
-
-      if (this.filters.dateTo) {
-        active.dateTo = {
-          label: 'Bitiş',
-          value: this.filters.dateTo,
-        }
-      }
-
-      if (this.filters.status) {
-        const status = this.statusOptions.find((s) => s.value === this.filters.status)
-        active.status = {
-          label: 'Durum',
-          value: status ? status.label : this.filters.status,
-        }
-      }
-
-      if (this.filters.search) {
-        active.search = {
-          label: 'Arama',
-          value: this.filters.search,
-        }
-      }
-
-      return active
-    },
-
-    activeFiltersCount() {
-      return Object.keys(this.activeFilters).length
     },
   },
 
   mounted() {
-    this.getAllAgents()
-    this.filters.status = (STATUS.find((s) => s.value === 'ALL') || {}).value
+    // TODO: I want to define it in a shared area belonging to the project
+    this.getAllAgents() // Load agents
+
+    // Default status to ALL
+    this.filters.status = (this.statusOptions.find((s) => s.value === 'ALL') || {}).value
 
     // Set From date to today at 09:00
     const now = new Date()
@@ -295,65 +263,78 @@ export default {
   methods: {
     async getAllAgents() {
       try {
-        this.agentsLoading = true
-        const axios = (await import('axios')).default
+        this.agentsLoading = true // Show the user a loading screen until the data fetch
+
+        const axios = (await import('axios')).default // dynamically import axios
+
+        // Make sure all required variables are set
         if (!this.apiUrl || !this.baseId || !this.agentTableId || !this.apiKey) {
           console.error('Please control .env file')
           return
         }
+
         const endpoint = `${this.apiUrl}/${this.baseId}/${this.agentTableId}`
         const config = {
           headers: {
             Authorization: `Bearer ${this.apiKey}`,
           },
         }
-        const response = await axios.get(endpoint, config)
-        const { records } = response.data
+        const response = await axios.get(endpoint, config) // Make API call
+        const { records } = response.data // Extract records - destructuring assignment
         this.allAgents = records
-        console.log('Filter agents loaded:', records.length)
       } catch (error) {
         console.error('Error while getting agent list:', error)
       } finally {
         this.agentsLoading = false
       }
     },
+    // Get agent name-surname first letter (To display within the avatar)
     agentAvatarLetters(agent) {
       let initials = ''
-      const { agent_name, agent_surname } = agent.fields
+      const { agent_name, agent_surname } = agent.fields // destructuring assignment for agent name and surname
       if (agent_name) {
-        initials += agent_name.charAt(0)
+        initials += agent_name.charAt(0) //first letter
       }
       if (agent_surname) {
-        initials += agent_surname.charAt(0)
+        initials += agent_surname.charAt(0) //first letter
       }
-      return initials.toUpperCase()
+      return initials.toUpperCase() // first letters will be uppercase
     },
+
+    // Select agent for filter - One or more
     selectAgent(agentId) {
-      const index = this.filters.selectedAgents.indexOf(agentId)
+      const index = this.filters.selectedAgents.indexOf(agentId) // check if agent is already selected or not selected
+
       if (index > -1) {
-        this.filters.selectedAgents.splice(index, 1)
+        this.filters.selectedAgents.splice(index, 1) // agent is selected, remove
       } else {
-        this.filters.selectedAgents.push(agentId)
+        this.filters.selectedAgents.push(agentId) // agent is not selected, add
       }
 
-      this.applyFilters()
+      this.applyFilters() // apply filters
     },
+
+    // check if agent is selected
     isSelected(agentId) {
       return this.filters.selectedAgents.includes(agentId)
     },
+
+    // Combine date and time
     combineDateTime(dateString, timeString) {
-      if (!dateString || !timeString) return ''
+      if (!dateString || !timeString) return '' // If date or time is missing, return empty string
       try {
         const combinedDateTime = new Date(`${dateString}T${timeString}`)
+
         if (!combinedDateTime || isNaN(combinedDateTime.getTime())) {
           console.warn('Invalid date created:', dateString, timeString)
           return ''
         }
-        const day = String(combinedDateTime.getDate()).padStart(2, '0')
-        const month = String(combinedDateTime.getMonth() + 1).padStart(2, '0')
+
+        const day = String(combinedDateTime.getDate()).padStart(2, '0') // Day - two digits
+        const month = String(combinedDateTime.getMonth() + 1).padStart(2, '0') // Month - two digits
         const year = combinedDateTime.getFullYear()
-        const hours = String(combinedDateTime.getHours()).padStart(2, '0')
-        const minutes = String(combinedDateTime.getMinutes()).padStart(2, '0')
+        const hours = String(combinedDateTime.getHours()).padStart(2, '0') // Hours - two digits
+        const minutes = String(combinedDateTime.getMinutes()).padStart(2, '0') // Minutes - two digits
 
         return `${day}-${month}-${year} ${hours}:${minutes}`
       } catch (error) {
@@ -361,13 +342,17 @@ export default {
         return ''
       }
     },
+
     applyFilters() {
+      // Keeps all filters on a new object without affecting existing filters
       const processedFilters = {
         ...this.filters,
-        search: this.filters.search ? this.filters.search.toLowerCase().trim() : '',
+        search: this.filters.search ? this.filters.search.toLowerCase().trim() : '', // Searches should be possible by address, customer name, email address, or phone number. - Case Insensitive
       }
-      this.$emit('filter-changed', processedFilters)
+      this.$emit('filter-changed', processedFilters) // The change is reported to the MainLayout page, which then transfers this information to the AppointmentList page.
     },
+
+    // Apply filter with from date filter
     updateDateFrom() {
       if (this.filters.dateFromDate && this.filters.dateFromTime) {
         const combinedDate = this.combineDateTime(
@@ -381,6 +366,8 @@ export default {
         }
       }
     },
+
+    // Apply filter with from date filter
     updateDateTo() {
       if (this.filters.dateToDate && this.filters.dateToTime) {
         const combinedDate = this.combineDateTime(this.filters.dateToDate, this.filters.dateToTime)
@@ -389,10 +376,6 @@ export default {
           this.applyFilters()
         }
       }
-    },
-    removeFilter(key) {
-      this.filters[key] = ''
-      this.applyFilters()
     },
   },
 }
@@ -608,7 +591,7 @@ export default {
       transition: color 0.2s ease;
 
       &:hover {
-        color: var(--q-color-primary);
+        color: #e91e63;
       }
     }
   }

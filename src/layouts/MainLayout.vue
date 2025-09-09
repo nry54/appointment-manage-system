@@ -2,18 +2,11 @@
   <q-layout view="lHh Lpr lFf">
     <q-page-container>
       <q-page class="q-pa-md">
-        <!-- Filtre bölümü için component -->
         <FilterComponent @filter-changed="filterChanged" />
+        <!-- Filter Section Component -->
 
-        <!-- Randevu listesi için component-->
-        <AppointmentList
-          :appointments="filteredAppointments"
-          :loading="loading"
-          :filters="currentFilters"
-          @appointment-saved="handleAppointmentSaved"
-          @appointment-updated="handleAppointmentUpdated"
-          @appointment-deleted="handleAppointmentDeleted"
-        />
+        <!-- Appoinment List Component-->
+        <AppointmentList :filters="currentFilters" />
       </q-page>
     </q-page-container>
   </q-layout>
@@ -34,43 +27,11 @@ export default defineComponent({
 
   data() {
     return {
-      loading: false,
-      appointments: [],
       currentFilters: {},
     }
   },
-
-  computed: {
-    filteredAppointments() {
-      return this.appointments
-    },
-  },
-
   methods: {
-    handleAppointmentSaved(appointment) {
-      const newAppointment = {
-        ...appointment,
-        id: this.appointments.length + 1,
-      }
-      this.appointments.push(newAppointment)
-      console.log('Yeni randevu eklendi:', newAppointment)
-    },
-
-    handleAppointmentUpdated(updatedAppointment) {
-      const index = this.appointments.findIndex((apt) => apt.id === updatedAppointment.id)
-      if (index !== -1) {
-        this.appointments.splice(index, 1, updatedAppointment)
-        console.log('Randevu güncellendi:', updatedAppointment)
-      }
-    },
-
-    handleAppointmentDeleted(appointmentId) {
-      const index = this.appointments.findIndex((apt) => apt.id === appointmentId)
-      if (index !== -1) {
-        this.appointments.splice(index, 1)
-        console.log('Randevu silindi:', appointmentId)
-      }
-    },
+    // Keep data sent that the filter component (To filter appointment records in the Appointment List component)
     filterChanged(processedFilters) {
       this.currentFilters = processedFilters
     },
