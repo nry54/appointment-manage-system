@@ -1,6 +1,7 @@
 <template>
   <q-dialog v-model="showForm" persistent>
     <q-card class="appointment-form-card">
+      <!-- DIALOG TITLE SECTION -->
       <q-card-section class="dialog-header q-py-lg q-px-lg">
         <div class="header-content">
           <div class="header-left">
@@ -29,7 +30,9 @@
           />
         </div>
       </q-card-section>
+      <!--------------------->
 
+      <!-- APPOINTMENT RECORD SECTION FORM -->
       <q-card-section class="q-py-md q-px-lg q-gutter-y-lg">
         <q-form @submit="createAppointment" class="q-gutter-md">
           <div v-if="formData.selectedContact" class="selected-contact-wrapper">
@@ -303,7 +306,9 @@
           </q-input>
         </q-form>
       </q-card-section>
+      <!--------------------->
 
+      <!-- DIALOG ACTION -->
       <q-card-actions class="q-px-lg q-pb-lg q-pt-md">
         <q-space />
         <q-btn
@@ -321,6 +326,7 @@
           :loading="loading"
         />
       </q-card-actions>
+      <!--------------------->
     </q-card>
   </q-dialog>
 </template>
@@ -343,8 +349,9 @@ export default {
       default: null,
     },
   },
-  emits: ['update:modelValue', 'appointment-created', 'appointment-updated'],
+  emits: ['update:modelValue', 'appointment-created', 'appointment-updated'], // For sending data to parent component
   computed: {
+    // Dialog visibility status information
     showForm: {
       get() {
         return this.modelValue
@@ -353,6 +360,8 @@ export default {
         this.$emit('update:modelValue', value)
       },
     },
+
+    // Create content item for Agent select items
     agentOptions() {
       if (!this.agents || this.agents.length === 0) {
         return []
@@ -372,6 +381,8 @@ export default {
 
       return options
     },
+
+    // To prevent the selected agent item from reappearing on the select
     availableAgentOptions() {
       // Filter out already selected agents
       const selectedAgentIds = this.formData.selectedAgents.map(
@@ -425,6 +436,7 @@ export default {
         }
       }
     },
+    // This triggers when the appointment list item is clicked.
     appointmentData: {
       handler(newVal) {
         if (newVal && this.operation === 'EDIT') {
@@ -435,10 +447,11 @@ export default {
     },
   },
   async mounted() {
-    this.fetchAllContacts()
-    await this.fetchAllAgents()
+    this.fetchAllContacts() // Fetching contacts
+    await this.fetchAllAgents() //Fetching agents
   },
   methods: {
+    //Fetching agents
     async fetchAllAgents() {
       try {
         this.agentLoading = true
@@ -484,40 +497,40 @@ export default {
         this.agentLoading = false
       }
     },
-    async fetchAllContacts() {
-      // API'den tek seferde contacts tablosundaki verileri çekme işlemi
-      try {
-        const axios = (await import('axios')).default
 
+    // Fetching contacts - Fetching data from the Contacts table in one operation from the API
+    async fetchAllContacts() {
+      try {
+        const axios = (await import('axios')).default // dynamically import axios
+
+        // Make sure all required variables are set
         if (!this.apiUrl || !this.baseId || !this.contactTableId || !this.apiKey) {
-          console.error(
-            'API URL, Base ID, Contact Table ID veya API KEY eksik. Lütfen .env dosyanızı kontrol edin.',
-          )
+          console.error('Please control .env file')
           return
         }
-        // Gerekirse endpoint'i logla
+
         const endpoint = `${this.apiUrl}/${this.baseId}/${this.contactTableId}`
 
-        // API key'i header olarak ekleyeceğiz
+        // We will add the API key as a header
         const config = {
           headers: {
             Authorization: `Bearer ${this.apiKey}`,
-            // Eğer API farklı bir header bekliyorsa örn. 'x-api-key', yukarıdaki satırı değiştirin
           },
         }
         const response = await axios.get(endpoint, config)
-        // Elde edilen randevuları component'in appointments prop'una emit ile gönderiyoruz
-        const { records } = response.data
 
-        this.contactList = records.map((contact) => contact.fields)
+        const { records } = response.data // Extract records - destructuring assignment
+
+        this.contactList = records.map((contact) => contact.fields) // Get only fields
       } catch (error) {
-        // Hata durumunda konsola yazdır
         console.error('Error:', error)
       }
     },
+
+    // Search contact with text - Name or surname
     filterRecords(val, update) {
+      // If the search box is empty, show the entire list
       if (val === '') {
-        // Arama kutusu boşsa, tüm listeyi göster
         update(() => {
           this.filteredContacts = this.contactList
         })
@@ -525,7 +538,7 @@ export default {
       }
 
       update(() => {
-        const needle = val.toLowerCase() // Kullanıcının girdiği metin
+        const needle = val.toLowerCase() // The text entered by the user - By lower case transform
         this.filteredContacts = this.contactList.filter(
           (contact) =>
             contact.contact_name.toLowerCase().includes(needle) ||
@@ -533,6 +546,11 @@ export default {
         )
       })
     },
+
+    // Create Appointment
+    // - Added validations
+    // - Added User Notification
+    // API Call Method
     async createAppointment() {
       if (
         !this.formData.selectedContact ||
@@ -608,11 +626,6 @@ export default {
           },
         }
 
-        // Debug: Log the data being sent
-        console.log('Appointment Data to be sent:', appointmentData)
-        console.log('Selected Agents:', this.formData.selectedAgents)
-        console.log('Formatted Agents:', appointmentData.fields.agents)
-
         const config = {
           headers: {
             Authorization: `Bearer ${this.apiKey}`,
@@ -624,12 +637,11 @@ export default {
         let response
         if (this.operation === 'ADD') {
           const postData = {
-            records: [appointmentData], // "records" anahtarı içinde bir diziye alın
+            records: [appointmentData],
           }
 
           // Create new appointment
           response = await axios.post(endpoint, postData, config)
-          console.log('POST Response:', response.data)
         } else {
           // Update existing appointment (if you have an appointment ID)
           const appointmentId = this.formData.appointmentId
@@ -637,9 +649,7 @@ export default {
             throw new Error('Appointment ID is required for update operation')
           }
 
-          console.log('Making PATCH request to:', `${endpoint}/${appointmentId}`)
           response = await axios.patch(`${endpoint}/${appointmentId}`, appointmentData, config)
-          console.log('PATCH Response:', response.data)
         }
 
         this.loading = false
@@ -772,16 +782,7 @@ export default {
       }
     },
 
-    getContactInitials(name, surname) {
-      const nameInit = name?.[0] || ''
-      const surnameInit = surname?.[0] || ''
-      let initials = ''
-
-      if (nameInit) initials += nameInit.charAt(0)
-      if (surnameInit) initials += surnameInit.charAt(0)
-      return initials.toUpperCase() || '?'
-    },
-
+    // Agent avatar letter string operations
     getAgentInitials(agent) {
       let initials = ''
 
@@ -820,12 +821,7 @@ export default {
       return initials.toUpperCase() || '?'
     },
 
-    getSelectedAgentLabel() {
-      if (!this.formData.selectedAgent) return []
-      const { agent_name, agent_surname } = this.formData.selectedAgent
-      return `${agent_name || ''} ${agent_surname || ''}`.trim() || 'Agent'
-    },
-
+    // Prepared for selected agent
     getAgentLabel(agent) {
       if (!agent) return 'Agent'
 
@@ -845,11 +841,14 @@ export default {
       return `${agent_name} ${agent_surname}`.trim() || 'Agent'
     },
 
+    // Select agent operations for appoinment
+    // INFO: Those who have not been selected can be selected
     addAgent(selectedAgent) {
       if (selectedAgent && !this.isAgentSelected(selectedAgent)) {
         this.formData.selectedAgents.push(selectedAgent)
         this.selectedAgentTemp = null // Clear the select
 
+        // Info message
         this.$q.notify({
           type: 'positive',
           message: `Agent ${this.getAgentLabel(selectedAgent)} added successfully!`,
@@ -858,14 +857,16 @@ export default {
       }
     },
 
+    // Deletes the selected agents from the list
     removeAgent(index) {
       if (index >= 0 && index < this.formData.selectedAgents.length) {
         const removedAgent = this.formData.selectedAgents[index]
-        this.formData.selectedAgents.splice(index, 1)
+        this.formData.selectedAgents.splice(index, 1) // Remove item from array
         console.log('Agent removed:', removedAgent)
       }
     },
 
+    // Check selected for agent
     isAgentSelected(agent) {
       return this.formData.selectedAgents.some((selectedAgent) => {
         const selectedId =
@@ -875,6 +876,7 @@ export default {
       })
     },
 
+    // Default values are assigned to formData
     resetForm() {
       this.formData = {
         appointmentId: null,
@@ -890,6 +892,7 @@ export default {
       this.filteredContacts = []
     },
 
+    // If an agent color is specified, that color is assigned; otherwise, the default colors are used.
     getAgentColor(agent, fallbackIndex = 0) {
       const agentData = agent.agentData || agent
 
@@ -921,6 +924,7 @@ export default {
       return colors[fallbackIndex % colors.length]
     },
 
+    // Date-time operations
     updateDateTime() {
       if (this.dateValue && this.timeValue) {
         const day = this.dateValue.split('-')[2]
@@ -930,27 +934,7 @@ export default {
       }
     },
 
-    combineDateTime(dateString, timeString) {
-      if (!dateString || !timeString) return ''
-      try {
-        const combinedDateTime = new Date(`${dateString}T${timeString}`)
-        if (!combinedDateTime || isNaN(combinedDateTime.getTime())) {
-          console.warn('Invalid date created:', dateString, timeString)
-          return ''
-        }
-        const day = String(combinedDateTime.getDate()).padStart(2, '0')
-        const month = String(combinedDateTime.getMonth() + 1).padStart(2, '0')
-        const year = combinedDateTime.getFullYear()
-        const hours = String(combinedDateTime.getHours()).padStart(2, '0')
-        const minutes = String(combinedDateTime.getMinutes()).padStart(2, '0')
-
-        return `${day}-${month}-${year} ${hours}:${minutes}`
-      } catch (error) {
-        console.error('Error combining date and time:', error)
-        return ''
-      }
-    },
-
+    // The selected appointment data is assigned to the FormData values
     loadAppointmentData() {
       if (this.appointmentData) {
         const { appointment_id, contact_id, contact_name, appointment_address, appointment_date } =
@@ -1013,49 +997,6 @@ export default {
             console.warn('Error parsing appointment date:', error)
           }
         }
-      }
-    },
-
-    // Debug method to test API configuration
-    async testApiConnection() {
-      try {
-        const axios = (await import('axios')).default
-        const testEndpoint = `${this.apiUrl}/${this.baseId}/${this.contactTableId}?maxRecords=1`
-
-        console.log('Testing API connection to:', testEndpoint)
-
-        const response = await axios.get(testEndpoint, {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          timeout: 5000,
-        })
-
-        console.log('API Test Successful:', response.status, response.data)
-
-        this.$q.notify({
-          type: 'positive',
-          message: 'API Connection Test Successful',
-          caption: `Status: ${response.status} | Records: ${response.data.records?.length || 0}`,
-          position: 'top',
-          timeout: 3000,
-        })
-
-        return true
-      } catch (error) {
-        console.error('API Test Failed:', error)
-
-        this.$q.notify({
-          type: 'negative',
-          message: 'API Connection Test Failed',
-          caption: error.response?.status
-            ? `HTTP ${error.response.status}: ${error.response.statusText}`
-            : error.message,
-          position: 'top',
-          timeout: 5000,
-        })
-
-        return false
       }
     },
   },
