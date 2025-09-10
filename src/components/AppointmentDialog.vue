@@ -332,7 +332,10 @@
 </template>
 
 <script>
-export default {
+import { defineComponent } from 'vue'
+import { useAirtableService } from '../stores/airtableClient'
+
+export default defineComponent({
   name: 'AppointmentPage',
 
   props: {
@@ -351,6 +354,9 @@ export default {
   },
   emits: ['update:modelValue', 'appointment-created', 'appointment-updated'], // For sending data to parent component
   computed: {
+    airtableService() {
+      return useAirtableService()
+    },
     // Dialog visibility status information
     showForm: {
       get() {
@@ -409,13 +415,6 @@ export default {
         address: '',
         appointmentDate: '',
       },
-      // API configuration
-      apiUrl: process.env.VUE_APP_API_BASE_URL || '',
-      baseId: process.env.VUE_APP_API_BASE_ID || '',
-      contactTableId: process.env.VUE_APP_API_CONTACT_TABLE_ID || '',
-      agentTableId: process.env.VUE_APP_API_AGENT_TABLE_ID || '',
-      appointmentTableId: process.env.VUE_APP_API_APPOINTMENT_TABLE_ID || '',
-      apiKey: process.env.VUE_APP_API_KEY || '',
 
       // Data arrays
       contacts: [],
@@ -501,25 +500,7 @@ export default {
     // Fetching contacts - Fetching data from the Contacts table in one operation from the API
     async fetchAllContacts() {
       try {
-        const axios = (await import('axios')).default // dynamically import axios
-
-        // Make sure all required variables are set
-        if (!this.apiUrl || !this.baseId || !this.contactTableId || !this.apiKey) {
-          console.error('Please control .env file')
-          return
-        }
-
-        const endpoint = `${this.apiUrl}/${this.baseId}/${this.contactTableId}`
-
-        // We will add the API key as a header
-        const config = {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-        }
-        const response = await axios.get(endpoint, config)
-
-        const { records } = response.data // Extract records - destructuring assignment
+        const records = await this.airtableService.contactList() // Make API call
 
         this.contactList = records.map((contact) => contact.fields) // Get only fields
       } catch (error) {
@@ -1000,7 +981,7 @@ export default {
       }
     },
   },
-}
+})
 </script>
 
 <style lang="scss" scoped>

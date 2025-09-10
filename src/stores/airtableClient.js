@@ -4,6 +4,7 @@ import { reactive } from 'vue'
 // Shared reactive store for agents
 const agentStore = reactive({
   agentDetails: {}, // Cache for individual agent details by ID
+  allAgents: {},
 })
 
 // Airtable Info
@@ -84,6 +85,18 @@ export function useAirtableService() {
     }
   }
 
+  const contactList = async (params = {}) => {
+    try {
+      const response = await airtableClient.get('/contacts', { params })
+      return response.data.records
+    } catch (error) {
+      console.error(
+        'Airtable contacts hatası:',
+        error.response ? error.response.data : error.message,
+      )
+      throw error // Hatayı bileşenlere iletmek için throw edin
+    }
+  }
   /**
    * Tablodaki tüm kayıtları listeler.
    * @param {object} [params] - Airtable API'ye gönderilecek query parametreleri (örn: { view: 'Grid view', maxRecords: 10 })
@@ -212,5 +225,7 @@ export function useAirtableService() {
     createRecord,
     updateRecord,
     deleteRecord,
+
+    contactList,
   }
 }
