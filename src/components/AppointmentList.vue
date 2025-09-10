@@ -205,7 +205,7 @@
 import { defineComponent } from 'vue'
 import AppoinmentDialog from 'src/components/AppointmentDialog.vue'
 import { DEFAULT_PAGINATION, STATUS } from '../constants' // Defualt Pagination Constants and status constants
-import { useAirtableService } from '../stores/airtableClient'
+import { useAirtableStore } from '../stores/airtableClient.store.js'
 
 export default defineComponent({
   name: 'AppointmentList',
@@ -240,8 +240,8 @@ export default defineComponent({
     }
   },
   computed: {
-    airtableService() {
-      return useAirtableService()
+    airtableStore() {
+      return useAirtableStore()
     },
     // Pagination computed properties
     totalPages() {
@@ -308,7 +308,7 @@ export default defineComponent({
       try {
         this.appointmentsLoading = true
 
-        const response = await this.airtableService.appointmentList() // Make API call
+        const response = await this.airtableStore.fetchAllAppointments() // Fetch API call
 
         this.paginatedAppointments = response // Keep original data
         this.filteredAppointments = response // Keep filtered data
@@ -339,7 +339,7 @@ export default defineComponent({
       // Fetch agent details using the centralized service
       if (uniqueAgentIds.size > 0) {
         // Async call to getAgentsByIds method with agent ID array
-        await this.airtableService.getAgentsByIds([...uniqueAgentIds])
+        await this.airtableStore.fetchAgentsByIds([...uniqueAgentIds])
       }
     },
 
@@ -449,7 +449,7 @@ export default defineComponent({
       // First try to get color from agent_id lookup
       if (appointment.fields.agent_id && appointment.fields.agent_id[index]) {
         const agentId = appointment.fields.agent_id[index]
-        const agentDetails = this.airtableService.agentDetails[agentId]
+        const agentDetails = this.airtableStore.agentDetails[agentId]
 
         if (agentDetails && agentDetails.color) {
           return agentDetails.color
@@ -457,7 +457,7 @@ export default defineComponent({
       }
 
       // Use centralized service for default colors with comprehensive palette
-      return this.airtableService.getAgentColor(null, index)
+      return this.airtableStore.getAgentColor(null, index)
     },
 
     // Get status text for appoinment record

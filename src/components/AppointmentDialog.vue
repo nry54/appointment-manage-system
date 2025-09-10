@@ -333,7 +333,7 @@
 
 <script>
 import { defineComponent } from 'vue'
-import { useAirtableService } from '../stores/airtableClient'
+import { useAirtableStore } from '../stores/airtableClient.store.js'
 
 export default defineComponent({
   name: 'AppointmentPage',
@@ -354,8 +354,8 @@ export default defineComponent({
   },
   emits: ['update:modelValue', 'appointment-created', 'appointment-updated'], // For sending data to parent component
   computed: {
-    airtableService() {
-      return useAirtableService()
+    airtableStore() {
+      return useAirtableStore()
     },
     // Dialog visibility status information
     showForm: {
@@ -365,6 +365,11 @@ export default defineComponent({
       set(value) {
         this.$emit('update:modelValue', value)
       },
+    },
+
+    // Get agents from the Pinia store
+    agents() {
+      return this.airtableStore.getAllAgents || []
     },
 
     // Create content item for Agent select items
@@ -420,7 +425,6 @@ export default defineComponent({
       contacts: [],
       contactList: [],
       filteredContacts: [],
-      agents: [],
       agentLoading: false,
     }
   },
@@ -446,61 +450,32 @@ export default defineComponent({
     },
   },
   async mounted() {
-    this.fetchAllContacts() // Fetching contacts
     await this.fetchAllAgents() //Fetching agents
+    await this.fetchAllContacts() // Fetching contacts
   },
   methods: {
     //Fetching agents
     async fetchAllAgents() {
       try {
-        this.agentLoading = true
-        const axios = (await import('axios')).default
-
-        if (!this.apiUrl || !this.baseId || !this.agentTableId || !this.apiKey) {
-          console.error('Agent API configuration missing. Please check your .env file.')
-
-          return
-        }
-
-        const endpoint = `${this.apiUrl}/${this.baseId}/${this.agentTableId}`
-        const config = {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-        }
-
-        const response = await axios.get(endpoint, config)
-        const { records } = response.data
-
-        this.agents = records
-        console.log('Agents fetched successfully:', records.length, 'agents')
-
-        // Show notification if no agents found
-        if (records.length === 0) {
-          this.$q.notify({
-            type: 'warning',
-            message: 'No agents found. Please check your configuration.',
-            position: 'top',
-            icon: 'warning',
-          })
-        }
+        // Use the Pinia store to fetch agents
+        await this.airtableStore.fetchAllAgents()
       } catch (error) {
-        console.error('Error fetching agents:', error)
+        console.error('Error loading agents:', error)
+
+        // Show error notification
         this.$q.notify({
           type: 'negative',
-          message: 'Failed to load agents. Please try again.',
+          message: 'Failed to load agents',
           position: 'top',
           icon: 'error',
         })
-      } finally {
-        this.agentLoading = false
       }
     },
 
     // Fetching contacts - Fetching data from the Contacts table in one operation from the API
     async fetchAllContacts() {
       try {
-        const records = await this.airtableService.contactList() // Make API call
+        const records = await this.airtableStore.fetchAllContacts() // Fetch API call
 
         this.contactList = records.map((contact) => contact.fields) // Get only fields
       } catch (error) {
@@ -528,10 +503,7 @@ export default defineComponent({
       })
     },
 
-    // Create Appointment
-    // - Added validations
-    // - Added User Notification
-    // API Call Method
+    // Create Appointment using Pinia store
     async createAppointment() {
       if (
         !this.formData.selectedContact ||
@@ -548,7 +520,6 @@ export default defineComponent({
           caption: 'Contact, Address, Agent, and Date are required',
           timeout: 4000,
         })
-
         return
       }
 
@@ -565,80 +536,49 @@ export default defineComponent({
 
       this.loading = true
 
-      // Make actual API call
       try {
-        const axios = (await import('axios')).default
-
-        if (!this.apiUrl || !this.baseId || !this.appointmentTableId || !this.apiKey) {
-          const missingVars = []
-          if (!this.apiUrl) missingVars.push('VUE_APP_API_BASE_URL')
-          if (!this.baseId) missingVars.push('VUE_APP_API_BASE_ID')
-          if (!this.appointmentTableId) missingVars.push('VUE_APP_API_APPOINTMENT_TABLE_ID')
-          if (!this.apiKey) missingVars.push('VUE_APP_API_KEY')
-
-          throw new Error(
-            `Missing environment variables: ${missingVars.join(', ')}. Please check your .env file.`,
-          )
-        }
-
-        const endpoint = `${this.apiUrl}/${this.baseId}/${this.appointmentTableId}`
-
         // Prepare appointment data
         const appointmentData = {
-          fields: {
-            contact_id:
-              this.formData.selectedContact.id || this.formData.selectedContact.contact_id,
-            contact_name: this.formData.selectedContact.contact_name,
-            contact_email: this.formData.selectedContact.contact_email || '',
-            contact_phone: this.formData.selectedContact.contact_phone || '',
-            address: this.formData.address,
-            appointment_date: this.formData.appointmentDate,
-            agents: this.formData.selectedAgents.map((agent) => {
-              // Format agents for Airtable - adjust based on your field type
-              if (agent.agent_id) {
-                return agent.agent_id // If agents field is a linked record
-              } else {
-                // If agents field is text, send agent names
-                const agentName = `${agent.agent_name || ''} ${agent.agent_surname || ''}`.trim()
-                return agentName
-              }
-            }),
-            created_at: new Date().toISOString(),
-          },
-        }
-
-        const config = {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 10000, // 10 second timeout
+          contact_id: this.formData.selectedContact.id || this.formData.selectedContact.contact_id,
+          contact_name: this.formData.selectedContact.contact_name,
+          contact_email: this.formData.selectedContact.contact_email || '',
+          contact_phone: this.formData.selectedContact.contact_phone || '',
+          address: this.formData.address,
+          appointment_date: this.formData.appointmentDate,
+          agents: this.formData.selectedAgents.map((agent) => {
+            // Format agents for Airtable - adjust based on your field type
+            if (agent.agent_id) {
+              return agent.agent_id // If agents field is a linked record
+            } else {
+              // If agents field is text, send agent names
+              const agentName = `${agent.agent_name || ''} ${agent.agent_surname || ''}`.trim()
+              return agentName
+            }
+          }),
+          created_at: new Date().toISOString(),
         }
 
         let response
         if (this.operation === 'ADD') {
-          const postData = {
-            records: [appointmentData],
-          }
-
-          // Create new appointment
-          response = await axios.post(endpoint, postData, config)
+          // Create new appointment using Pinia store
+          response = await this.airtableStore.createRecord('appointments', appointmentData)
         } else {
-          // Update existing appointment (if you have an appointment ID)
+          // Update existing appointment using Pinia store
           const appointmentId = this.formData.appointmentId
           if (!appointmentId) {
             throw new Error('Appointment ID is required for update operation')
           }
-
-          response = await axios.patch(`${endpoint}/${appointmentId}`, appointmentData, config)
+          response = await this.airtableStore.updateRecord(
+            'appointments',
+            appointmentId,
+            appointmentData,
+          )
         }
 
         this.loading = false
+        processingNotif() // Dismiss processing notification
 
-        // Dismiss processing notification
-        processingNotif()
-
-        // Show detailed success notification
+        // Show success notification
         this.$q.notify({
           type: 'positive',
           message: `Appointment ${this.operation === 'ADD' ? 'created' : 'updated'} successfully!`,
@@ -652,113 +592,22 @@ export default defineComponent({
         this.$emit('update:modelValue', false)
         this.$emit(
           this.operation === 'ADD' ? 'appointment-created' : 'appointment-updated',
-          response.data,
+          response,
         )
       } catch (error) {
         this.loading = false
-
-        // Dismiss processing notification
-        processingNotif()
-
-        // Enhanced error logging
-        console.error('API Error Details:', {
-          message: error.message,
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          data: error.response?.data,
-          headers: error.response?.headers,
-          config: {
-            url: error.config?.url,
-            method: error.config?.method,
-            headers: error.config?.headers,
-          },
-        })
-
-        // Determine error message based on error type
-        let errorMessage = 'Please try again later'
-        let errorDetails = ''
-
-        if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
-          errorMessage = 'Network connection failed'
-          errorDetails = 'Please check your internet connection and API server status'
-        } else if (error.response) {
-          // Server responded with error status
-          const status = error.response.status
-          switch (status) {
-            case 400:
-              errorMessage = 'Invalid request data'
-              errorDetails = error.response.data?.error?.message || 'Please check your input data'
-              break
-            case 401:
-              errorMessage = 'Authentication failed'
-              errorDetails = 'Please check your API key configuration'
-              break
-            case 403:
-              errorMessage = 'Access denied'
-              errorDetails = 'You do not have permission to perform this action'
-              break
-            case 404:
-              errorMessage = 'API endpoint not found'
-              errorDetails = `Check if the table ID '${this.appointmentTableId}' exists`
-              break
-            case 422:
-              errorMessage = 'Data validation failed'
-              errorDetails = error.response.data?.error?.message || 'Please check required fields'
-              break
-            case 500:
-              errorMessage = 'Server error'
-              errorDetails = 'The server encountered an error. Please try again later'
-              break
-            default:
-              errorMessage = `HTTP ${status} Error`
-              errorDetails = error.response.data?.error?.message || error.response.statusText
-          }
-        } else if (error.request) {
-          // Request was made but no response received
-          errorMessage = 'No response from server'
-          errorDetails = 'The server did not respond. Please check if the API is running'
-        } else {
-          // Something else happened
-          errorMessage = 'Request setup failed'
-          errorDetails = error.message
-        }
+        processingNotif() // Dismiss processing notification
 
         console.error('Error creating/updating appointment:', error)
 
-        // Show error notification with detailed information
+        // Show error notification
         this.$q.notify({
           type: 'negative',
-          message: `Failed to ${this.operation === 'ADD' ? 'create' : 'update'} appointment: ${errorMessage}`,
+          message: `Failed to ${this.operation === 'ADD' ? 'create' : 'update'} appointment`,
           position: 'top',
           icon: 'error',
-          caption: errorDetails,
-          timeout: 8000,
-          actions: [
-            {
-              label: 'View Details',
-              color: 'white',
-              handler: () => {
-                console.log('Full Error Object:', error)
-                this.$q.notify({
-                  type: 'info',
-                  message: 'Error Details',
-                  caption: `Status: ${error.response?.status || 'N/A'} | Message: ${error.message}`,
-                  position: 'bottom',
-                  timeout: 5000,
-                })
-              },
-            },
-            {
-              label: 'Retry',
-              color: 'white',
-              handler: () => this.createAppointment(),
-            },
-            {
-              label: 'Dismiss',
-              color: 'white',
-              handler: () => {},
-            },
-          ],
+          caption: error.message || 'Please try again later',
+          timeout: 5000,
         })
       }
     },

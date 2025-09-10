@@ -218,7 +218,7 @@
 
 <script>
 import { STATUS } from '../constants/index'
-import { useAirtableService } from '../stores/airtableClient' // agent operations methods
+import { useAirtableStore } from '../stores/airtableClient.store.js' // New Pinia store
 
 export default {
   name: 'FilterComponent',
@@ -236,11 +236,6 @@ export default {
         search: '',
       },
       allAgents: [], // All agents variable
-      /**  API Configuration TODO: Move to a separate file */
-      apiUrl: process.env.VUE_APP_API_BASE_URL || '',
-      baseId: process.env.VUE_APP_API_BASE_ID || '',
-      agentTableId: process.env.VUE_APP_API_AGENT_TABLE_ID || '',
-      apiKey: process.env.VUE_APP_API_KEY || '',
 
       agentSelectDialog: false, // Dialog for agent selection
       agentsLoading: false, // Loading state for agents
@@ -251,13 +246,12 @@ export default {
     statusOptions() {
       return STATUS
     },
-    airtableService() {
-      return useAirtableService()
+    airtableStore() {
+      return useAirtableStore()
     },
   },
 
   mounted() {
-    // TODO: I want to define it in a shared area belonging to the project
     this.getAllAgents() // Load agents
 
     // Default status to ALL
@@ -275,9 +269,11 @@ export default {
       try {
         this.agentsLoading = true // Show the user a loading screen until the data fetch
 
-        const response = await this.airtableService.getAllAgents() // Make API call
+        // Use the new Pinia store to fetch agents
+        await this.airtableStore.fetchAllAgents()
 
-        this.allAgents = response
+        // Get agents from the store
+        this.allAgents = this.airtableStore.getAllAgents
       } catch (error) {
         console.error('Error while getting agent list:', error)
       } finally {
