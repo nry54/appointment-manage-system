@@ -259,19 +259,6 @@ export default {
     // Default status to ALL
     this.filters.status = (this.statusOptions.find((s) => s.value === 'ALL') || {}).value
 
-    // Set From date to today at 09:00
-    const now = new Date()
-    now.setHours(9, 0, 0, 0)
-    this.filters.dateFromDate = now.toISOString().slice(0, 10)
-    this.filters.dateFromTime = '09:00'
-
-    // Set To date to one month later at 18:00
-    const oneMonthLater = new Date()
-    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1)
-    oneMonthLater.setHours(18, 0, 0, 0)
-    this.filters.dateToDate = oneMonthLater.toISOString().slice(0, 10)
-    this.filters.dateToTime = '18:00'
-
     // Use nextTick to ensure Vue has processed the data changes
     this.$nextTick(() => {
       this.updateDateFrom()
