@@ -205,7 +205,7 @@
 import { defineComponent } from 'vue'
 import AppoinmentDialog from 'src/components/AppointmentDialog.vue'
 import { DEFAULT_PAGINATION, STATUS } from '../constants' // Defualt Pagination Constants and status constants
-import { useAgentService } from '../stores/useAgentService' // agent operations methods
+import { useAirtableService } from '../stores/airtableClient'
 
 export default defineComponent({
   name: 'AppointmentList',
@@ -218,21 +218,8 @@ export default defineComponent({
     },
   },
   components: { AppoinmentDialog },
-  setup() {
-    // Use the agent service for agent operations methods
-    const agentService = useAgentService()
-    return {
-      agentService,
-    }
-  },
   data: function () {
     return {
-      /**  API Configuration TODO: Move to a separate file */
-      apiUrl: process.env.VUE_APP_API_BASE_URL || '',
-      baseId: process.env.VUE_APP_API_BASE_ID || '',
-      appoinmentTableId: process.env.VUE_APP_API_APPOINTMENT_TABLE_ID || '',
-      apiKey: process.env.VUE_APP_API_KEY || '',
-
       paginatedAppointments: [],
       filteredAppointments: [],
 
@@ -253,6 +240,9 @@ export default defineComponent({
     }
   },
   computed: {
+    airtableService() {
+      return useAirtableService()
+    },
     // Pagination computed properties
     totalPages() {
       return Math.ceil(this.filteredAppointments.length / this.rowsPerPage)
@@ -317,34 +307,14 @@ export default defineComponent({
     async init() {
       try {
         this.appointmentsLoading = true
-        const axios = (await import('axios')).default // dynamically import axios
 
-        // Check if all required variables are set
-        if (!this.apiUrl || !this.baseId || !this.appoinmentTableId || !this.apiKey) {
-          console.error('Please control .env file')
-          return
-        }
+        const response = await this.airtableService.appointmentList() // Make API call
 
-        const endpoint = `${this.apiUrl}/${this.baseId}/${this.appoinmentTableId}`
-
-        // We will add the API key as a header
-        const config = {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-        }
-
-        const response = await axios.get(endpoint, config) // Make API call
-        const { records } = response.data // Extract records - destructuring assignment
-
-        let filteredRecords = records
-        filteredRecords = this.filterRecords(records, this.filters) // Apply filters
-
-        this.paginatedAppointments = records // Keep original data
-        this.filteredAppointments = filteredRecords // Keep filtered data
+        this.paginatedAppointments = response // Keep original data
+        this.filteredAppointments = response // Keep filtered data
         this.currentPage = DEFAULT_PAGINATION.page // Reset to first page using constant
 
-        await this.fetchAgentDetailsForAppointments(records) // Fetch agent details
+        await this.fetchAgentDetailsForAppointments(response) // Fetch agent details
       } catch (error) {
         console.error('An error occurred while fetching appointments:', error)
       } finally {
@@ -369,7 +339,7 @@ export default defineComponent({
       // Fetch agent details using the centralized service
       if (uniqueAgentIds.size > 0) {
         // Async call to getAgentsByIds method with agent ID array
-        await this.agentService.getAgentsByIds([...uniqueAgentIds])
+        await this.airtableService.getAgentsByIds([...uniqueAgentIds])
       }
     },
 
@@ -479,14 +449,15 @@ export default defineComponent({
       // First try to get color from agent_id lookup
       if (appointment.fields.agent_id && appointment.fields.agent_id[index]) {
         const agentId = appointment.fields.agent_id[index]
-        const agentDetails = this.agentService.agentDetails[agentId]
+        const agentDetails = this.airtableService.agentDetails[agentId]
+
         if (agentDetails && agentDetails.color) {
           return agentDetails.color
         }
       }
 
       // Use centralized service for default colors with comprehensive palette
-      return this.agentService.getAgentColor(null, index)
+      return this.airtableService.getAgentColor(null, index)
     },
 
     // Get status text for appoinment record

@@ -218,6 +218,7 @@
 
 <script>
 import { STATUS } from '../constants/index'
+import { useAirtableService } from '../stores/airtableClient' // agent operations methods
 
 export default {
   name: 'FilterComponent',
@@ -250,6 +251,9 @@ export default {
     statusOptions() {
       return STATUS
     },
+    airtableService() {
+      return useAirtableService()
+    },
   },
 
   mounted() {
@@ -271,24 +275,9 @@ export default {
       try {
         this.agentsLoading = true // Show the user a loading screen until the data fetch
 
-        const axios = (await import('axios')).default // dynamically import axios
+        const response = await this.airtableService.getAllAgents() // Make API call
 
-        // Make sure all required variables are set
-        if (!this.apiUrl || !this.baseId || !this.agentTableId || !this.apiKey) {
-          console.error('Please control .env file')
-          return
-        }
-
-        const endpoint = `${this.apiUrl}/${this.baseId}/${this.agentTableId}`
-        const config = {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-        }
-        const response = await axios.get(endpoint, config) // Make API call
-        const { records } = response.data // Extract records - destructuring assignment
-
-        this.allAgents = records
+        this.allAgents = response
       } catch (error) {
         console.error('Error while getting agent list:', error)
       } finally {
