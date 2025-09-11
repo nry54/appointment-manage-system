@@ -4,7 +4,14 @@
       <!-- Header Section -->
       <div class="header-section">
         <div class="appointment-count">
-          <span class="count-text">{{ filteredAppointments.length }} Appointment Found</span>
+          <span class="count-text"
+            >{{ filteredAppointments.length }} Appointment Found
+            <div class="text-italic text-caption">
+              * As the default maximum number of records for the List Record endpoint is 100, this
+              section will still display 100 when a new record is added. The record is added to the
+              system in the background.
+            </div>
+          </span>
         </div>
         <div class="create-button">
           <q-btn
@@ -810,8 +817,8 @@ export default defineComponent({
 }
 
 .appointment-count .count-text {
-  font-size: 12px;
-  font-weight: 400;
+  font-size: 14px;
+  font-weight: 800;
   color: #2c3e50;
 }
 
