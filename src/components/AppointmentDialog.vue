@@ -46,21 +46,21 @@
                   <div class="contact-details">
                     <div class="contact-detail-item">
                       <q-icon name="person" class="detail-icon" />
-                      {{ formData.selectedContact.contact_name }}
-                      {{ formData.selectedContact.contact_surname }}
+                      {{ formData.selectedContact.contact_name[0] }}
+                      {{ formData.selectedContact.contact_surname[0] }}
                     </div>
                   </div>
                   <div class="contact-details">
                     <div class="contact-detail-item">
                       <q-icon name="email" size="14px" class="detail-icon" />
                       <span class="detail-text">{{
-                        formData.selectedContact.contact_email || 'No email provided'
+                        formData.selectedContact.contact_email[0] || 'No email provided'
                       }}</span>
                     </div>
                     <div class="contact-detail-item">
                       <q-icon name="phone" size="14px" class="detail-icon" />
                       <span class="detail-text">{{
-                        formData.selectedContact.contact_phone || 'No phone provided'
+                        formData.selectedContact.contact_phone[0] || 'No phone provided'
                       }}</span>
                     </div>
                   </div>
@@ -917,20 +917,28 @@ export default defineComponent({
 
     // The selected appointment data is assigned to the FormData values
     loadAppointmentData() {
+      console.log(this.appointmentData)
       if (this.appointmentData) {
-        const { appointment_id, contact_id, contact_name, appointment_address, appointment_date } =
-          this.appointmentData.fields
+        const {
+          appointment_id,
+          contact_id,
+          contact_name,
+          contact_surname,
+          appointment_address,
+          appointment_date,
+        } = this.appointmentData.fields
         this.formData.appointmentId = appointment_id
         this.formData.address = appointment_address || ''
-        this.formData.appointmentDate = appointment_date || ''
+        this.formData.appointmentDate = appointment_date
 
         // Load contact data
         if (contact_id || contact_name) {
           // Contact ID'nin "rec" ile başladığından emin olalım
-          if (contact_id && contact_id.startsWith('rec')) {
+          if (contact_id && contact_id[0].startsWith('rec')) {
             this.formData.selectedContact = {
               id: contact_id,
               contact_name: contact_name,
+              contact_surname: contact_surname,
               contact_email: this.appointmentData.fields.contact_email,
               contact_phone: this.appointmentData.fields.contact_phone,
             }
@@ -943,6 +951,7 @@ export default defineComponent({
               this.formData.selectedContact = {
                 id: contactRecord.id,
                 contact_name: contact_name,
+                contact_surname: contact_surname,
                 contact_email: this.appointmentData.fields.contact_email,
                 contact_phone: this.appointmentData.fields.contact_phone,
               }
@@ -951,6 +960,7 @@ export default defineComponent({
               this.formData.selectedContact = {
                 id: contact_id,
                 contact_name: contact_name,
+                contact_surname: contact_surname,
                 contact_email: this.appointmentData.fields.contact_email,
                 contact_phone: this.appointmentData.fields.contact_phone,
               }
@@ -960,7 +970,11 @@ export default defineComponent({
 
         // Load agents data - Enhanced to handle different formats
         if (this.appointmentData.fields?.Agents) {
-          const agentsData = this.appointmentData.fields.Agents
+          const agentsData = {
+            agent_id: this.appointmentData.fields.agent_id,
+            agent_name: this.appointmentData.fields.agent_name,
+            agent_surname: this.appointmentData.fields.agent_surname,
+          }
 
           // Reset selected agents
           this.formData.selectedAgents = []
