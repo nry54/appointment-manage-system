@@ -1,5 +1,11 @@
 import axios from 'axios'
 import { defineStore } from 'pinia'
+import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import customParseFormat from 'dayjs/plugin/customParseFormat'
+
+dayjs.extend(utc)
+dayjs.extend(customParseFormat)
 
 // Airtable Configuration
 const AIRTABLE_BASE_ID = 'appkTtnhXACqj0kag'
@@ -170,11 +176,224 @@ export const useAirtableStore = defineStore('airtable', {
       }
     },
 
+    async createAppointment(tableName, recordData, contactForAirtable) {
+      console.log('recordData', recordData)
+
+      // Daha önce çalışan sabit verilerle create işlemi için kontrol
+      if (recordData.records && Array.isArray(recordData.records)) {
+        // Eğer zaten doğru formatta geliyorsa, doğrudan kullan
+        try {
+          const response = await airtableClient.post(`/${tableName}`, recordData)
+          // Update local state
+          this.appointments.push(...response.data.records)
+          return response.data
+        } catch (error) {
+          console.error('Error:', error.response || error)
+          throw error
+        }
+      }
+
+      // Gelen verilerle çalışacak şekilde güncellenmiş kod
+      // Extract and validate agent IDs (must be valid Airtable record IDs)
+      let agentIds = []
+
+      // Önce recordData'dan gelen agentIds'i kontrol edelim
+      if (recordData.agentIds && Array.isArray(recordData.agentIds)) {
+        agentIds = recordData.agentIds.filter(
+          (id) => id && typeof id === 'string' && id.startsWith('rec'),
+        )
+      }
+
+      // Eğer agentIds yoksa, selectedAgents'tan çıkaralım
+      if (agentIds.length === 0 && recordData.selectedAgents) {
+        agentIds = recordData.selectedAgents
+          .map((agent) => {
+            // Get the agent ID from different possible sources
+            const agentId = agent.id || agent.agent_id || agent.number
+
+            // Airtable record IDs are strings that start with 'rec'
+            if (agentId && typeof agentId === 'string' && agentId.startsWith('rec')) {
+              return agentId
+            }
+
+            console.warn('Invalid agent ID found:', agentId, 'for agent:', agent)
+            return null
+          })
+          .filter((id) => id !== null)
+      }
+
+      console.log('Extracted Agent IDs:', agentIds)
+
+      // Validate that we have at least one agent
+      if (!agentIds || agentIds.length === 0) {
+        throw new Error('At least one valid agent ID is required')
+      }
+
+      // Validate contact ID
+      let contactId = null
+
+      // Önce contactForAirtable'tan contactId'yi çıkaralım
+      if (contactForAirtable && contactForAirtable.id) {
+        contactId = contactForAirtable.id
+      } else if (recordData.selectedContact) {
+        contactId =
+          recordData.selectedContact.contact_id ||
+          recordData.selectedContact.id ||
+          recordData.selectedContact.number
+      }
+
+      // Contact ID'nin "rec" ile başladığından emin olalım
+      if (!contactId || !contactId.startsWith('rec')) {
+        throw new Error('Valid contact ID starting with "rec" is required')
+      }
+
+      console.log('Contact for Airtable:', contactForAirtable)
+
+      // Tarih formatını düzelt
+      let formattedDate = recordData.appointment_date
+      if (formattedDate && typeof formattedDate === 'string') {
+        // Eğer "DD-MM-YYYY HH:mm" formatındaysa, doğru formata çevir
+        if (formattedDate.includes('-') && formattedDate.includes(' ')) {
+          const [datePart, timePart] = formattedDate.split(' ')
+          const [day, month, year] = datePart.split('-')
+          formattedDate = dayjs(
+            `${year}-${month}-${day} ${timePart}`,
+            'YYYY-MM-DD HH:mm',
+          ).toISOString()
+        }
+        // Eğer zaten ISO formatındaysa, olduğu gibi bırak
+      }
+
+      // Gelen verilerle çalışacak şekilde güncellenmiş payload
+      const recordsToCreate = {
+        records: [
+          {
+            fields: {
+              // 1. Contact Alanı (Tekli Bağlantı)
+              contact_id: [contactId],
+
+              // 2. Agents Alanı (Çoklu Bağlantı)
+              agent_id: agentIds,
+
+              // 3. Appointment Address Alanı (Metin Alanı)
+              appointment_address: recordData.address,
+
+              // 4. Appointment Date Alanı (Tarih Alanı)
+              appointment_date: formattedDate || recordData.appointment_date,
+            },
+          },
+        ],
+      }
+
+      console.log('Final payload to Airtable:', recordsToCreate)
+
+      try {
+        const response = await airtableClient.post(`/${tableName}`, recordsToCreate)
+        // Update local state
+        this.appointments.push(...response.data.records)
+        return response.data
+      } catch (error) {
+        console.error('Error:', error.response || error)
+        throw error
+      }
+    },
+
     // Generic CRUD Operations
     async createRecord(tableName, recordData) {
       try {
+        console.log('recordData', recordData)
+
+        // Eğer recordData zaten doğru formatta geliyorsa (records array'i ile), doğrudan kullan
+        if (recordData.records && Array.isArray(recordData.records)) {
+          const response = await airtableClient.post(`/${tableName}`, recordData)
+
+          // Update local state based on table
+          if (tableName === 'appointments') {
+            this.appointments.push(...response.data.records)
+          } else if (tableName === 'contacts') {
+            this.contacts.push(...response.data.records)
+          } else if (tableName === 'agents') {
+            this.agents.push(...response.data.records)
+          }
+
+          return response.data.records[0]
+        }
+
+        // Gelen verilerle çalışacak şekilde güncellenmiş kod
+        // Format the data according to Airtable API requirements
+        const formattedRecord = {
+          fields: {},
+        }
+
+        // Process each field in the recordData
+        for (const [key, value] of Object.entries(recordData)) {
+          // Handle special cases for linked records (arrays of record IDs)
+          if (key === 'agents' && Array.isArray(value)) {
+            // For linked record fields, we need to send an array of record IDs that start with 'rec'
+            formattedRecord.fields['Agents'] = value.filter(
+              (id) => typeof id === 'string' && id.startsWith('rec'),
+            )
+          } else if (key === 'selectedAgents' && Array.isArray(value)) {
+            // Handle selectedAgents array (from appointment form)
+            formattedRecord.fields['Agents'] = value
+              .map((agent) => agent.id || agent.agent_id || agent.number)
+              .filter((id) => id && typeof id === 'string' && id.startsWith('rec'))
+          } else if (key === 'contact_id' && typeof value === 'string' && value.startsWith('rec')) {
+            // For single linked record, wrap in array if it starts with 'rec'
+            formattedRecord.fields['Contact'] = [value]
+          } else if (key === 'selectedContact' && typeof value === 'object' && value !== null) {
+            // Handle selectedContact object (from appointment form)
+            const contactId = value.id || value.contact_id || value.number
+            if (contactId && typeof contactId === 'string' && contactId.startsWith('rec')) {
+              formattedRecord.fields['Contact'] = [contactId]
+            }
+          } else if (key === 'agent_id' && typeof value === 'string' && value.startsWith('rec')) {
+            // Handle single agent ID that starts with 'rec'
+            formattedRecord.fields['Agents'] = [value]
+          } else if (key === 'agent_id' && Array.isArray(value)) {
+            // Handle array of agent IDs
+            formattedRecord.fields['Agents'] = value.filter(
+              (id) => typeof id === 'string' && id.startsWith('rec'),
+            )
+          } else if (key === 'agentIds' && Array.isArray(value)) {
+            // Handle agentIds array (from appointment form)
+            formattedRecord.fields['Agents'] = value.filter(
+              (id) => typeof id === 'string' && id.startsWith('rec'),
+            )
+          } else if (key === 'Contact' && Array.isArray(value)) {
+            // Handle Contact array directly
+            formattedRecord.fields['Contact'] = value.filter(
+              (id) => typeof id === 'string' && id.startsWith('rec'),
+            )
+          } else if (key === 'Agents' && Array.isArray(value)) {
+            // Handle Agents array directly
+            formattedRecord.fields['Agents'] = value.filter(
+              (id) => typeof id === 'string' && id.startsWith('rec'),
+            )
+          } else if (key === 'appointment_date' && typeof value === 'string') {
+            // Handle appointment date formatting
+            if (value.includes('-') && value.includes(' ')) {
+              // Eğer "DD-MM-YYYY HH:mm" formatındaysa, doğru formata çevir
+              const [datePart, timePart] = value.split(' ')
+              const [day, month, year] = datePart.split('-')
+              formattedRecord.fields['appointment_date'] = dayjs(
+                `${year}-${month}-${day} ${timePart}`,
+                'YYYY-MM-DD HH:mm',
+              ).toISOString()
+            } else {
+              // Diğer durumlarda olduğu gibi kullan
+              formattedRecord.fields['appointment_date'] = value
+            }
+          } else {
+            // For other fields, use the key as is
+            formattedRecord.fields[key] = value
+          }
+        }
+
+        console.log('Formatted record for Airtable:', formattedRecord)
+
         const response = await airtableClient.post(`/${tableName}`, {
-          records: [{ fields: recordData }],
+          records: [formattedRecord],
         })
 
         // Update local state based on table

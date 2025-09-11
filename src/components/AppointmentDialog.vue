@@ -311,6 +311,7 @@
       <!-- DIALOG ACTION -->
       <q-card-actions class="q-px-lg q-pb-lg q-pt-md">
         <q-space />
+
         <q-btn
           flat
           label="Cancel"
@@ -419,6 +420,7 @@ export default defineComponent({
         selectedAgents: [], // Changed to array for multiple agents
         address: '',
         appointmentDate: '',
+        useStaticData: false, // Sabit verilerle create işlemi için
       },
 
       // Data arrays
@@ -426,6 +428,7 @@ export default defineComponent({
       contactList: [],
       filteredContacts: [],
       agentLoading: false,
+      contactRecords: [],
     }
   },
   watch: {
@@ -476,8 +479,13 @@ export default defineComponent({
     async fetchAllContacts() {
       try {
         const records = await this.airtableStore.fetchAllContacts() // Fetch API call
+        this.contactRecords = records
 
-        this.contactList = records.map((contact) => contact.fields) // Get only fields
+        this.contactList = records.map((contact) => ({
+          ...contact.fields,
+          id: contact.id, // id'yi de ekleyelim
+          number: contact.fields?.number, // number'ı da ekleyelim
+        })) // Get only fields
       } catch (error) {
         console.error('Error:', error)
       }
@@ -537,31 +545,153 @@ export default defineComponent({
       this.loading = true
 
       try {
-        // Prepare appointment data
+        // Daha önce çalışan sabit verilerle create işlemi için geçici çözüm
+        // Eğer formData'da sabit veriler varsa, doğrudan onları kullan
+        if (this.formData.useStaticData) {
+          // Önceki çalışan sabit veriler
+          const staticAppointmentData = {
+            records: [
+              {
+                fields: {
+                  // 1. Contact Alanı (Tekli Bağlantı)
+                  Contact: ['rec0BntvpdVDQS2DT'],
+
+                  // 2. Agents Alanı (Çoklu Bağlantı)
+                  Agents: ['recbuYVenj0I5s96z', 'recev3wtQD2ZpsXty'],
+
+                  // 3. Appointment Address Alanı (Metin Alanı)
+                  appointment_address: this.formData.address || 'Sakarya',
+
+                  // 4. Appointment Date Alanı (Tarih Alanı)
+                  appointment_date: '2025-09-19T20:35:00.000Z',
+                },
+              },
+            ],
+          }
+
+          const response = await this.airtableStore.createRecord(
+            'appointments',
+            staticAppointmentData,
+          )
+          this.loading = false
+          processingNotif()
+
+          // Show success notification
+          this.$q.notify({
+            type: 'positive',
+            message: 'Appointment created successfully with static data!',
+            position: 'top',
+            icon: 'check_circle',
+            timeout: 5000,
+          })
+
+          this.resetForm()
+          this.$emit('update:modelValue', false)
+          this.$emit('appointment-created', response)
+          return
+        }
+
+        // Gelen verilerle çalışacak şekilde güncellenmiş kod
+        // Find the full contact record to get the Airtable record ID
+        let contactRecord = null
+        let contactId = null
+
+        // Önce formData.selectedContact'tan contactId'yi çıkaralım
+        if (this.formData.selectedContact) {
+          contactId =
+            this.formData.selectedContact.id ||
+            this.formData.selectedContact.contact_id ||
+            this.formData.selectedContact.number
+        }
+
+        // Eğer contactId "rec" ile başlamıyorsa, contactRecords'ta arayalım
+        if (contactId && !contactId.startsWith('rec')) {
+          contactRecord = this.contactRecords.find((record) => record.fields?.number === contactId)
+          if (contactRecord) {
+            contactId = contactRecord.id
+          }
+        } else if (contactId && contactId.startsWith('rec')) {
+          // contactId zaten "rec" ile başlıyorsa, contactRecord'u bulalım
+          contactRecord = this.contactRecords.find((record) => record.id === contactId)
+        } else {
+          // Eğer contactId yoksa veya geçerli değilse, contactRecords'ta arayalım
+          contactRecord = this.contactRecords.find(
+            (record) =>
+              record.id === this.formData.selectedContact.id ||
+              record.id === this.formData.selectedContact.contact_id ||
+              record.fields?.number === this.formData.selectedContact.number,
+          )
+          if (contactRecord) {
+            contactId = contactRecord.id
+          }
+        }
+
+        // Contact ID'nin "rec" ile başladığından emin olalım
+        if (!contactId || !contactId.startsWith('rec')) {
+          throw new Error('Valid contact ID starting with "rec" is required')
+        }
+
+        // Prepare agent IDs - extract Airtable record IDs from selected agents
+        const agentIds = this.formData.selectedAgents
+          .map((agent) => {
+            // Try to find the agent in our agents list to get the real Airtable record ID
+            const fullAgent = this.agents.find(
+              (a) =>
+                a.id === agent.id ||
+                a.id === agent.agent_id ||
+                a.fields?.number === agent.number ||
+                (a.fields?.agent_name === agent.agent_name &&
+                  a.fields?.agent_surname === agent.agent_surname),
+            )
+
+            // Return the actual Airtable record ID if found, otherwise try to use what we have
+            const agentId = fullAgent ? fullAgent.id : agent.agent_id || agent.id || agent.number
+
+            // Agent ID'nin "rec" ile başladığından emin olalım
+            if (agentId && typeof agentId === 'string' && agentId.startsWith('rec')) {
+              return agentId
+            }
+
+            console.warn('Invalid agent ID found:', agentId, 'for agent:', agent)
+            return null
+          })
+          .filter((id) => id !== null)
+
+        // Validate that we have at least one agent
+        if (agentIds.length === 0) {
+          // If we couldn't find valid agent IDs, try to use the agent data directly
+          const directAgentIds = this.formData.selectedAgents
+            .map((agent) => agent.id || agent.agent_id || agent.number)
+            .filter((id) => id && typeof id === 'string' && id.startsWith('rec'))
+
+          if (directAgentIds.length > 0) {
+            agentIds.push(...directAgentIds)
+          }
+        }
+
+        // En az bir agent olduğundan emin olalım
+        if (agentIds.length === 0) {
+          throw new Error('At least one valid agent ID starting with "rec" is required')
+        }
+
+        // Prepare appointment data with proper Airtable format
         const appointmentData = {
-          contact_id: this.formData.selectedContact.id || this.formData.selectedContact.contact_id,
-          contact_name: this.formData.selectedContact.contact_name,
-          contact_email: this.formData.selectedContact.contact_email || '',
-          contact_phone: this.formData.selectedContact.contact_phone || '',
+          selectedContact: this.formData.selectedContact,
+          selectedAgents: this.formData.selectedAgents,
           address: this.formData.address,
           appointment_date: this.formData.appointmentDate,
-          agents: this.formData.selectedAgents.map((agent) => {
-            // Format agents for Airtable - adjust based on your field type
-            if (agent.agent_id) {
-              return agent.agent_id // If agents field is a linked record
-            } else {
-              // If agents field is text, send agent names
-              const agentName = `${agent.agent_name || ''} ${agent.agent_surname || ''}`.trim()
-              return agentName
-            }
-          }),
-          created_at: new Date().toISOString(),
+          agentIds: agentIds, // Ekstra olarak agentIds'i de gönderiyoruz
         }
 
         let response
         if (this.operation === 'ADD') {
+          console.log('Appointment data being sent:', appointmentData)
           // Create new appointment using Pinia store
-          response = await this.airtableStore.createRecord('appointments', appointmentData)
+          response = await this.airtableStore.createAppointment(
+            'appointments',
+            appointmentData,
+            contactRecord,
+          )
         } else {
           // Update existing appointment using Pinia store
           const appointmentId = this.formData.appointmentId
@@ -675,13 +805,26 @@ export default defineComponent({
     // INFO: Those who have not been selected can be selected
     addAgent(selectedAgent) {
       if (selectedAgent && !this.isAgentSelected(selectedAgent)) {
-        this.formData.selectedAgents.push(selectedAgent)
+        // Gelen verilerle çalışacak şekilde agent verisini zenginleştirelim
+        const enrichedAgent = {
+          ...selectedAgent,
+          // Agent'in sahip olabileceği tüm özellikleri ekleyelim
+          id: selectedAgent.id || selectedAgent.agent_id || selectedAgent.number,
+          agent_id: selectedAgent.agent_id || selectedAgent.id || selectedAgent.number,
+          agent_name: selectedAgent.agent_name || selectedAgent.name || selectedAgent.label,
+          agent_surname: selectedAgent.agent_surname || selectedAgent.surname || '',
+          number: selectedAgent.number || selectedAgent.id || selectedAgent.agent_id,
+          // AgentData varsa onu da ekleyelim
+          agentData: selectedAgent.agentData || selectedAgent.fields || selectedAgent,
+        }
+
+        this.formData.selectedAgents.push(enrichedAgent)
         this.selectedAgentTemp = null // Clear the select
 
         // Info message
         this.$q.notify({
           type: 'positive',
-          message: `Agent ${this.getAgentLabel(selectedAgent)} added successfully!`,
+          message: `Agent ${this.getAgentLabel(enrichedAgent)} added successfully!`,
           position: 'top',
         })
       }
@@ -715,6 +858,7 @@ export default defineComponent({
         selectedAgents: [],
         address: '',
         appointmentDate: '',
+        useStaticData: false, // Sabit verilerle create işlemi için
       }
       this.selectedAgentTemp = null
       this.dateValue = ''
@@ -764,6 +908,13 @@ export default defineComponent({
       }
     },
 
+    // Test method for static data
+    testWithStaticData() {
+      this.formData.useStaticData = true
+      this.formData.address = 'Test Address'
+      this.createAppointment()
+    },
+
     // The selected appointment data is assigned to the FormData values
     loadAppointmentData() {
       if (this.appointmentData) {
@@ -775,54 +926,80 @@ export default defineComponent({
 
         // Load contact data
         if (contact_id || contact_name) {
-          this.formData.selectedContact = {
-            id: this.appointmentData.fields.contact_id,
-            contact_name: this.appointmentData.fields.contact_name[0],
-            contact_email: this.appointmentData.fields.contact_email[0],
-            contact_phone: this.appointmentData.fields.contact_phone[0],
+          // Contact ID'nin "rec" ile başladığından emin olalım
+          if (contact_id && contact_id.startsWith('rec')) {
+            this.formData.selectedContact = {
+              id: contact_id,
+              contact_name: contact_name,
+              contact_email: this.appointmentData.fields.contact_email,
+              contact_phone: this.appointmentData.fields.contact_phone,
+            }
+          } else {
+            // Eğer contact_id "rec" ile başlamıyorsa, contactRecords'ta arayalım
+            const contactRecord = this.contactRecords.find(
+              (record) => record.fields?.number === contact_id,
+            )
+            if (contactRecord) {
+              this.formData.selectedContact = {
+                id: contactRecord.id,
+                contact_name: contact_name,
+                contact_email: this.appointmentData.fields.contact_email,
+                contact_phone: this.appointmentData.fields.contact_phone,
+              }
+            } else {
+              // Eğer bulamazsak, olduğu gibi kullanalım
+              this.formData.selectedContact = {
+                id: contact_id,
+                contact_name: contact_name,
+                contact_email: this.appointmentData.fields.contact_email,
+                contact_phone: this.appointmentData.fields.contact_phone,
+              }
+            }
           }
         }
 
         // Load agents data - Enhanced to handle different formats
-        if (this.appointmentData.fields?.agents) {
-          const agentsData = this.appointmentData.fields.agents
+        if (this.appointmentData.fields?.Agents) {
+          const agentsData = this.appointmentData.fields.Agents
 
           // Reset selected agents
           this.formData.selectedAgents = []
 
+          // Handle array of agents from Airtable
           if (Array.isArray(agentsData)) {
-            // Handle array of agents
-            agentsData.forEach((agentData, index) => {
-              if (typeof agentData === 'string') {
-                // If it's a string, create an object
-                const nameParts = agentData.trim().split(' ')
+            agentsData.forEach((agentRecord) => {
+              // Each agentRecord should have an id and fields
+              if (agentRecord && agentRecord.id && agentRecord.fields) {
+                // Agent ID'nin "rec" ile başladığından emin olalım
+                if (agentRecord.id.startsWith('rec')) {
+                  this.formData.selectedAgents.push({
+                    id: agentRecord.id,
+                    ...agentRecord.fields,
+                  })
+                }
+              } else if (typeof agentRecord === 'string' && agentRecord.startsWith('rec')) {
+                // If it's just an ID string, create a minimal object
                 this.formData.selectedAgents.push({
-                  agent_name: nameParts[0] || '',
-                  agent_surname: nameParts.slice(1).join(' ') || '',
-                  id: `agent_${index}`,
+                  id: agentRecord,
                 })
-              } else if (typeof agentData === 'object' && agentData !== null) {
-                // If it's an object, use it directly
-                this.formData.selectedAgents.push(agentData)
+              } else if (typeof agentRecord === 'object' && agentRecord !== null) {
+                // If it's an object, use it directly but id'nin "rec" ile başladığından emin olalım
+                if (agentRecord.id && agentRecord.id.startsWith('rec')) {
+                  this.formData.selectedAgents.push(agentRecord)
+                }
               }
             })
-          } else if (typeof agentsData === 'string') {
-            // Handle single string
-            const nameParts = agentsData.trim().split(' ')
-            this.formData.selectedAgents.push({
-              agent_name: nameParts[0] || '',
-              agent_surname: nameParts.slice(1).join(' ') || '',
-              id: 'agent_0',
-            })
           }
-
-          // console.log('Processed selected agents:', this.formData.selectedAgents)
         }
 
         // Parse date and time for date/time inputs
         if (appointment_date) {
           try {
-            this.formData.appointment_date = appointment_date.toISOString()
+            // Convert ISO date to our format for the date/time pickers
+            const dateObj = new Date(appointment_date)
+            this.dateValue = dateObj.toISOString().split('T')[0] // YYYY-MM-DD
+            this.timeValue = dateObj.toTimeString().substring(0, 5) // HH:mm
+            this.formData.appointmentDate = appointment_date
           } catch (error) {
             console.warn('Error parsing appointment date:', error)
           }
@@ -834,7 +1011,6 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
-/* Enhanced Card */
 .appointment-form-card {
   width: 100%;
   max-width: 600px;
@@ -1113,7 +1289,9 @@ export default defineComponent({
 
 .remove-agent-btn {
   background: rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
+  transition: all 0.3s ease {
+
+  }
 }
 
 .remove-agent-btn:hover {
