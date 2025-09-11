@@ -412,6 +412,20 @@ export const useAirtableStore = defineStore('airtable', {
       }
     },
 
+    async getAppointmentById(appointmentId) {
+      if (!appointmentId) {
+        return null
+      }
+
+      try {
+        const response = await airtableClient.get(`/appointments/${appointmentId}`)
+        return response.data
+      } catch (error) {
+        console.error(`Error getting record ${appointmentId} in appointments:`, error)
+        throw error
+      }
+    },
+
     async updateRecord(tableName, recordId, recordData) {
       try {
         const response = await airtableClient.patch(`/${tableName}/${recordId}`, {
