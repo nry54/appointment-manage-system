@@ -420,7 +420,10 @@ export default {
   margin-right: -12px;
 }
 
-/* Loading animation for skeletons */
+/* Loading animation for skeletons 
+* It changes the horizontal position of a background image (usually a gradient). 
+* This causes the gradient to shift from one side to the other, creating a brightness effect.
+*/
 @keyframes shimmer {
   0% {
     background-position: -200% 0;
